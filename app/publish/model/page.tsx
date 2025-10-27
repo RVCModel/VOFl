@@ -453,7 +453,7 @@ function PublishModelContent() {
           Key: key,
           UploadId: uploadId,
           PartNumber: partNumber,
-          Body: chunk,
+          Body: chunk.stream(), // 将Blob转换为可读流
         })
 
         const partResult = await s3Client.send(uploadPartCommand)
