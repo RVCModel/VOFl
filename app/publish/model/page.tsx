@@ -379,6 +379,161 @@ function PublishModelContent() {
       abortController.abort()
     }
   }
+  // 使用调整后的分块大小重新上传
+  const uploadLargeFileWithAdjustedChunks = async (
+    file: File, 
+    apiFileType: string, 
+    fileType: string, 
+    uploadId: string, 
+    key: string, 
+    adjustedChunkSize: number, 
+    minChunkSize: number,
+    abortController?: AbortController
+  ) => {
+    const totalChunks = Math.ceil(file.size / adjustedChunkSize)
+    const parts = []
+    
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+      // 检查是否已取消
+      if (abortController?.signal.aborted) {
+        // 取消上传
+        await fetch('/api/upload-r2-multipart', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            uploadId,
+            key
+          })
+        })
+        throw new Error('Upload cancelled by user')
+      }
+      
+      const start = chunkIndex * adjustedChunkSize
+      const end = chunkIndex === totalChunks - 1 ? file.size : start + adjustedChunkSize
+      const chunk = file.slice(start, end)
+      
+      let retryCount = 0
+      const maxRetries = 3
+      let uploadSuccess = false
+      
+      while (retryCount < maxRetries && !uploadSuccess) {
+        // 再次检查是否已取消
+        if (abortController?.signal.aborted) {
+          // 取消上传
+          await fetch('/api/upload-r2-multipart', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+              uploadId,
+              key
+            })
+          })
+          throw new Error('Upload cancelled by user')
+        }
+        
+        try {
+          // 上传分块
+          const formData = new FormData()
+          formData.append('uploadId', uploadId)
+          formData.append('key', key)
+          formData.append('partNumber', (chunkIndex + 1).toString())
+          formData.append('chunk', chunk)
+          
+          const chunkResponse = await fetch('/api/upload-r2-chunk', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: formData,
+            signal: abortController?.signal
+          })
+          
+          if (chunkResponse.ok) {
+            const { etag } = await chunkResponse.json()
+            parts.push({
+              PartNumber: chunkIndex + 1,
+              ETag: etag
+            })
+            uploadSuccess = true
+            
+            // 更新进度
+            const progress = Math.round(((chunkIndex + 1) / totalChunks) * 100)
+            setUploadProgress(prev => ({ ...prev, [fileType]: progress }))
+          } else {
+            const errorData = await chunkResponse.json().catch(() => ({}))
+            console.error(`Chunk ${chunkIndex + 1} upload failed:`, errorData)
+            retryCount++
+            
+            if (retryCount < maxRetries) {
+              // 等待一段时间后重试
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+            }
+          }
+        } catch (error) {
+          if (error instanceof Error && error.name === 'AbortError') {
+            // 取消上传
+            await fetch('/api/upload-r2-multipart', {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+              },
+              body: JSON.stringify({
+                uploadId,
+                key
+              })
+            })
+            throw new Error('Upload cancelled by user')
+          }
+          
+          console.error(`Chunk ${chunkIndex + 1} upload error:`, error)
+          retryCount++
+          
+          if (retryCount < maxRetries) {
+            // 等待一段时间后重试
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+          }
+        }
+      }
+      
+      if (!uploadSuccess) {
+        throw new Error(`Failed to upload chunk ${chunkIndex + 1} after ${maxRetries} retries`)
+      }
+    }
+    
+    // 3. 完成多部分上传
+    const completeResponse = await fetch('/api/upload-r2-multipart', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        uploadId,
+        key,
+        parts
+      }),
+      signal: abortController?.signal
+    })
+    
+    if (!completeResponse.ok) {
+      throw new Error('Failed to complete multipart upload')
+    }
+    
+    const result = await completeResponse.json()
+    setFiles({ ...files, [fileType]: file })
+    setUploadStatus({ ...uploadStatus, [fileType]: 'success' })
+    // 保存上传后的文件URL
+    setFileUrls({ ...fileUrls, [fileType]: result.url })
+    showAlert(t.alerts.fileUploadSuccess, 'success')
+  }
+
   const uploadLargeFile = async (file: File, apiFileType: string, fileType: string, abortController?: AbortController) => {
     try {
       // 1. 初始化多部分上传
@@ -426,7 +581,26 @@ function PublishModelContent() {
         }
         
         const start = chunkIndex * chunkSize
-        const end = Math.min(start + chunkSize, file.size)
+        let end = Math.min(start + chunkSize, file.size)
+        
+        // 确保最后一个分块不会太小（至少100KB）
+        if (chunkIndex === totalChunks - 1) {
+          const lastChunkSize = end - start
+          const minChunkSize = 100 * 1024 // 100KB
+          
+          // 如果最后一个分块太小，调整倒数第二个分块的大小
+          if (lastChunkSize < minChunkSize && totalChunks > 1) {
+            // 重新计算分块
+            const adjustedChunkSize = Math.floor((file.size - minChunkSize) / (totalChunks - 1))
+            
+            // 如果调整后的分块大小仍然合理，使用新的分块大小
+            if (adjustedChunkSize >= minChunkSize) {
+              // 使用新的分块大小重新上传
+              return uploadLargeFileWithAdjustedChunks(file, apiFileType, fileType, uploadId, key, adjustedChunkSize, minChunkSize, abortController)
+            }
+          }
+        }
+        
         const chunk = file.slice(start, end)
         
         let retryCount = 0
