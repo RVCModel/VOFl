@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { X, Upload, AlertCircle, CheckCircle } from "lucide-react"
 import { translations } from "@/lib/i18n"
 import { useLocale } from "@/components/locale-provider"
+import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from '@aws-sdk/client-s3'
 
 export default function PublishModelPage() {
   return (
@@ -292,9 +293,9 @@ function PublishModelContent() {
       // 保存AbortController到状态中，以便可以取消上传
       setUploadControllers(prev => ({ ...prev, [fileType]: abortController }))
       
-      // 对于大文件使用分块上传
+      // 对于大文件使用直接上传到R2（绕过Vercel的4.5MB限制）
       if (file.size > 10 * 1024 * 1024) {
-        await uploadLargeFile(file, apiFileType, fileType, abortController)
+        await uploadLargeFileDirectly(file, apiFileType, fileType, abortController)
       } else {
         await uploadSmallFile(file, apiFileType, fileType, abortController)
       }
@@ -377,6 +378,126 @@ function PublishModelContent() {
     const abortController = uploadControllers[fileType]
     if (abortController) {
       abortController.abort()
+    }
+  }
+
+  // 直接上传大文件到R2（绕过Vercel的4.5MB限制）
+  const uploadLargeFileDirectly = async (
+    file: File, 
+    apiFileType: string, 
+    fileType: string,
+    abortController?: AbortController
+  ) => {
+    try {
+      // 计算分块数量（每个分块至少5MB以满足R2要求）
+      const chunkSize = 5 * 1024 * 1024 // 5MB
+      const totalChunks = Math.ceil(file.size / chunkSize)
+
+      // 1. 初始化多部分上传
+      const initResponse = await fetch('/api/upload-r2-direct', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          totalChunks
+        })
+      })
+
+      if (!initResponse.ok) {
+        throw new Error('Failed to initialize upload')
+      }
+
+      const { uploadId, key, endpoint, bucket, region, accessKeyId, secretAccessKey } = await initResponse.json()
+
+      // 2. 创建S3客户端
+      const s3Client = new S3Client({
+        region,
+        endpoint,
+        credentials: {
+          accessKeyId,
+          secretAccessKey,
+        },
+      })
+
+      // 3. 上传分块
+      const parts = []
+
+      for (let partNumber = 1; partNumber <= totalChunks; partNumber++) {
+        // 检查是否已取消
+        if (abortController?.signal.aborted) {
+          // 取消上传
+          await fetch('/api/upload-r2-direct', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ uploadId, key })
+          })
+          throw new Error('Upload cancelled by user')
+        }
+
+        const start = (partNumber - 1) * chunkSize
+        const end = Math.min(start + chunkSize, file.size)
+        const chunk = file.slice(start, end)
+
+        // 上传分块
+        const uploadPartCommand = new UploadPartCommand({
+          Bucket: bucket,
+          Key: key,
+          UploadId: uploadId,
+          PartNumber: partNumber,
+          Body: chunk,
+        })
+
+        const partResult = await s3Client.send(uploadPartCommand)
+        
+        parts.push({
+          PartNumber: partNumber,
+          ETag: partResult.ETag,
+        })
+
+        // 更新进度
+        const progress = Math.round((partNumber / totalChunks) * 100)
+        setUploadProgress(prev => ({ ...prev, [fileType]: progress }))
+      }
+
+      // 4. 完成多部分上传
+      const completeCommand = new CompleteMultipartUploadCommand({
+        Bucket: bucket,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: {
+          Parts: parts,
+        },
+      })
+
+      const result = await s3Client.send(completeCommand)
+
+      // 5. 生成公开访问URL
+      const publicUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || process.env.R2_PUBLIC_URL}/${key}`
+      
+      setFiles({ ...files, [fileType]: file })
+      setUploadStatus({ ...uploadStatus, [fileType]: 'success' })
+      setUploadProgress({ ...uploadProgress, [fileType]: 100 })
+      setFileUrls({ ...fileUrls, [fileType]: publicUrl })
+      showAlert(t.alerts.fileUploadSuccess, 'success')
+      
+      return { success: true, url: publicUrl }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Upload cancelled by user') {
+        // 用户取消上传，不需要显示错误
+        return
+      }
+      console.error(t.alerts.uploadFailed, error)
+      setUploadStatus({ ...uploadStatus, [fileType]: 'error' })
+      showAlert(t.alerts.fileUploadFailed, 'error')
+      throw error
     }
   }
   // 使用调整后的分块大小重新上传
