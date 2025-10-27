@@ -79,15 +79,15 @@ export async function POST(request: NextRequest) {
       return setCorsHeaders(NextResponse.json({ error: 'Permission denied' }, { status: 403 }))
     }
 
-    // 检查分块大小 - Vercel限制约为4.5MB
+    // 检查分块大小 - S3/R2要求每个分块至少5MB
     const chunkSize = chunk.size
-    const maxChunkSize = 500 * 1024 // 500KB - 与前端保持一致
+    const minChunkSize = 5 * 1024 * 1024 // 5MB - S3/R2最小分块大小
     
-    if (chunkSize > maxChunkSize) {
-      console.error(`Chunk size ${chunkSize} exceeds maximum allowed size ${maxChunkSize}`)
+    if (chunkSize < minChunkSize) {
+      console.error(`Chunk size ${chunkSize} is smaller than minimum allowed size ${minChunkSize}`)
       return setCorsHeaders(NextResponse.json({ 
-        error: 'Chunk too large', 
-        details: `Maximum chunk size is ${maxChunkSize / 1024}KB, got ${chunkSize / 1024}KB` 
+        error: 'Chunk too small', 
+        details: `Minimum chunk size is ${minChunkSize / 1024 / 1024}MB, got ${chunkSize / 1024 / 1024}MB` 
       }, { status: 413 }))
     }
 

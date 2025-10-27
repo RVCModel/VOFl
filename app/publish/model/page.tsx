@@ -558,7 +558,7 @@ function PublishModelContent() {
       const { uploadId, key } = await initResponse.json()
       
       // 2. 分块上传
-      const chunkSize = 500 * 1024 // 500KB chunks - 进一步减小分块大小以适应Vercel限制
+      const chunkSize = 5 * 1024 * 1024 // 5MB chunks - S3/R2要求每个分块至少5MB
       const totalChunks = Math.ceil(file.size / chunkSize)
       const parts = []
       
@@ -583,10 +583,10 @@ function PublishModelContent() {
         const start = chunkIndex * chunkSize
         let end = Math.min(start + chunkSize, file.size)
         
-        // 确保最后一个分块不会太小（至少100KB）
+        // 确保最后一个分块不会太小（至少5MB）
         if (chunkIndex === totalChunks - 1) {
           const lastChunkSize = end - start
-          const minChunkSize = 100 * 1024 // 100KB
+          const minChunkSize = 5 * 1024 * 1024 // 5MB - S3/R2最小分块大小
           
           // 如果最后一个分块太小，调整倒数第二个分块的大小
           if (lastChunkSize < minChunkSize && totalChunks > 1) {
