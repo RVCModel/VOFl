@@ -69,13 +69,29 @@ export async function POST(request: NextRequest) {
     const chunk = formData.get('chunk') as File
 
     if (!uploadId || !key || !partNumber || !chunk) {
+      console.error('Missing parameters:', { uploadId, key, partNumber, chunkSize: chunk?.size })
       return setCorsHeaders(NextResponse.json({ error: 'Missing required parameters' }, { status: 400 }))
     }
 
     // 验证用户是否有权限上传此文件（文件路径应包含用户ID）
     if (!key.includes(`/${user.id}/`)) {
+      console.error('Permission denied for user:', user.id, 'key:', key)
       return setCorsHeaders(NextResponse.json({ error: 'Permission denied' }, { status: 403 }))
     }
+
+    // 检查分块大小 - Vercel限制约为4.5MB
+    const chunkSize = chunk.size
+    const maxChunkSize = 500 * 1024 // 500KB - 与前端保持一致
+    
+    if (chunkSize > maxChunkSize) {
+      console.error(`Chunk size ${chunkSize} exceeds maximum allowed size ${maxChunkSize}`)
+      return setCorsHeaders(NextResponse.json({ 
+        error: 'Chunk too large', 
+        details: `Maximum chunk size is ${maxChunkSize / 1024}KB, got ${chunkSize / 1024}KB` 
+      }, { status: 413 }))
+    }
+
+    console.log(`Processing chunk ${partNumber} for upload ${uploadId}, size: ${chunkSize / 1024 / 1024}MB`)
 
     // 将文件转换为缓冲区
     const buffer = Buffer.from(await chunk.arrayBuffer())
@@ -90,6 +106,7 @@ export async function POST(request: NextRequest) {
     })
 
     const result = await r2Client.send(uploadCommand)
+    console.log(`Successfully uploaded chunk ${partNumber}, ETag: ${result.ETag}`)
 
     // 返回分块的ETag
     return setCorsHeaders(NextResponse.json({

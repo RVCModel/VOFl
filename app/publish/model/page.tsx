@@ -114,6 +114,9 @@ function PublishModelContent() {
     modelFile: "",
     datasetFile: ""
   })
+  
+  // 保存上传的AbortController，用于取消上传
+  const [uploadControllers, setUploadControllers] = useState<{ [key: string]: AbortController }>({})
   const showAlert = (message: string, type: 'success' | 'error' | 'warning' = 'error') => {
     setAlert({ show: true, message, type })
     setTimeout(() => {
@@ -283,21 +286,38 @@ function PublishModelContent() {
         throw new Error(t.alerts.userNotLoggedIn)
       }
       
+      // 创建AbortController用于取消上传
+      const abortController = new AbortController()
+      
+      // 保存AbortController到状态中，以便可以取消上传
+      setUploadControllers(prev => ({ ...prev, [fileType]: abortController }))
+      
       // 对于大文件使用分块上传
       if (file.size > 10 * 1024 * 1024) {
-        await uploadLargeFile(file, apiFileType, fileType)
+        await uploadLargeFile(file, apiFileType, fileType, abortController)
       } else {
-        await uploadSmallFile(file, apiFileType, fileType)
+        await uploadSmallFile(file, apiFileType, fileType, abortController)
       }
     } catch (error) {
+      if (error instanceof Error && error.message === 'Upload cancelled by user') {
+        // 用户取消上传，不需要显示错误
+        return
+      }
       console.error(t.alerts.uploadFailed, error)
       setUploadStatus({ ...uploadStatus, [fileType]: 'error' })
       showAlert(t.alerts.fileUploadFailed, 'error')
+    } finally {
+      // 清理AbortController
+      setUploadControllers(prev => {
+        const newControllers = { ...prev }
+        delete newControllers[fileType]
+        return newControllers
+      })
     }
   }
   
   // 上传小文件（使用原始API）
-  const uploadSmallFile = async (file: File, apiFileType: string, fileType: string) => {
+  const uploadSmallFile = async (file: File, apiFileType: string, fileType: string, abortController?: AbortController) => {
     // 模拟上传进度
     const progressInterval = setInterval(() => {
       setUploadProgress(prev => {
@@ -309,35 +329,57 @@ function PublishModelContent() {
       })
     }, 200)
     
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('type', apiFileType)
-    
-    const response = await fetch('/api/upload-r2', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`
-      },
-      body: formData,
-    })
-    
-    clearInterval(progressInterval)
-    setUploadProgress({ ...uploadProgress, [fileType]: 100 })
-    
-    if (!response.ok) {
-      throw new Error(t.alerts.uploadFailed)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('type', apiFileType)
+      
+      const response = await fetch('/api/upload-r2', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: formData,
+        signal: abortController?.signal
+      })
+      
+      // 检查是否已取消
+      if (abortController?.signal.aborted) {
+        throw new Error('Upload cancelled by user')
+      }
+      
+      clearInterval(progressInterval)
+      setUploadProgress({ ...uploadProgress, [fileType]: 100 })
+      
+      if (!response.ok) {
+        throw new Error(t.alerts.uploadFailed)
+      }
+      
+      const result = await response.json()
+      setFiles({ ...files, [fileType]: file })
+      setUploadStatus({ ...uploadStatus, [fileType]: 'success' })
+      // 保存上传后的文件URL
+      setFileUrls({ ...fileUrls, [fileType]: result.url })
+      showAlert(t.alerts.fileUploadSuccess, 'success')
+    } catch (error) {
+      clearInterval(progressInterval)
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Upload cancelled by user')
+      }
+      
+      throw error
     }
-    
-    const result = await response.json()
-    setFiles({ ...files, [fileType]: file })
-    setUploadStatus({ ...uploadStatus, [fileType]: 'success' })
-    // 保存上传后的文件URL
-    setFileUrls({ ...fileUrls, [fileType]: result.url })
-    showAlert(t.alerts.fileUploadSuccess, 'success')
   }
   
-  // 上传大文件（使用分块上传）
-  const uploadLargeFile = async (file: File, apiFileType: string, fileType: string) => {
+  // 取消上传
+  const cancelUpload = (fileType: string) => {
+    const abortController = uploadControllers[fileType]
+    if (abortController) {
+      abortController.abort()
+    }
+  }
+  const uploadLargeFile = async (file: File, apiFileType: string, fileType: string, abortController?: AbortController) => {
     try {
       // 1. 初始化多部分上传
       const initResponse = await fetch('/api/upload-r2-multipart', {
@@ -350,7 +392,8 @@ function PublishModelContent() {
           fileName: file.name,
           fileType: apiFileType,
           fileSize: file.size
-        })
+        }),
+        signal: abortController?.signal
       })
       
       if (!initResponse.ok) {
@@ -360,39 +403,118 @@ function PublishModelContent() {
       const { uploadId, key } = await initResponse.json()
       
       // 2. 分块上传
-      const chunkSize = 5 * 1024 * 1024 // 5MB chunks
+      const chunkSize = 500 * 1024 // 500KB chunks - 进一步减小分块大小以适应Vercel限制
       const totalChunks = Math.ceil(file.size / chunkSize)
       const parts = []
       
       for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        // 检查是否已取消
+        if (abortController?.signal.aborted) {
+          // 取消上传
+          await fetch('/api/upload-r2-multipart', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+              uploadId,
+              key
+            })
+          })
+          throw new Error('Upload cancelled by user')
+        }
+        
         const start = chunkIndex * chunkSize
         const end = Math.min(start + chunkSize, file.size)
         const chunk = file.slice(start, end)
         
-        // 上传分块
-        const formData = new FormData()
-        formData.append('uploadId', uploadId)
-        formData.append('key', key)
-        formData.append('partNumber', (chunkIndex + 1).toString())
-        formData.append('chunk', chunk)
+        let retryCount = 0
+        const maxRetries = 3
+        let uploadSuccess = false
         
-        const chunkResponse = await fetch('/api/upload-r2-chunk', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`
-          },
-          body: formData
-        })
-        
-        if (!chunkResponse.ok) {
-          throw new Error(`Failed to upload chunk ${chunkIndex + 1}`)
+        while (retryCount < maxRetries && !uploadSuccess) {
+          // 再次检查是否已取消
+          if (abortController?.signal.aborted) {
+            // 取消上传
+            await fetch('/api/upload-r2-multipart', {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+              },
+              body: JSON.stringify({
+                uploadId,
+                key
+              })
+            })
+            throw new Error('Upload cancelled by user')
+          }
+          
+          try {
+            // 上传分块
+            const formData = new FormData()
+            formData.append('uploadId', uploadId)
+            formData.append('key', key)
+            formData.append('partNumber', (chunkIndex + 1).toString())
+            formData.append('chunk', chunk)
+            
+            const chunkResponse = await fetch('/api/upload-r2-chunk', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`
+              },
+              body: formData,
+              signal: abortController?.signal
+            })
+            
+            if (chunkResponse.ok) {
+              const { etag } = await chunkResponse.json()
+              parts.push({
+                PartNumber: chunkIndex + 1,
+                ETag: etag
+              })
+              uploadSuccess = true
+            } else {
+              const errorData = await chunkResponse.json().catch(() => ({}))
+              console.error(`Chunk ${chunkIndex + 1} upload failed:`, errorData)
+              retryCount++
+              
+              if (retryCount < maxRetries) {
+                // 等待一段时间后重试
+                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+              }
+            }
+          } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+              // 取消上传
+              await fetch('/api/upload-r2-multipart', {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                  uploadId,
+                  key
+                })
+              })
+              throw new Error('Upload cancelled by user')
+            }
+            
+            console.error(`Chunk ${chunkIndex + 1} upload error:`, error)
+            retryCount++
+            
+            if (retryCount < maxRetries) {
+              // 等待一段时间后重试
+              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
+            }
+          }
         }
         
-        const { etag } = await chunkResponse.json()
-        parts.push({
-          PartNumber: chunkIndex + 1,
-          ETag: etag
-        })
+        if (!uploadSuccess) {
+          throw new Error(`Failed to upload chunk ${chunkIndex + 1} after ${maxRetries} retries`)
+        }
         
         // 更新进度
         const progress = Math.round(((chunkIndex + 1) / totalChunks) * 90)
@@ -410,7 +532,8 @@ function PublishModelContent() {
           uploadId,
           key,
           parts
-        })
+        }),
+        signal: abortController?.signal
       })
       
       if (!completeResponse.ok) {
@@ -427,8 +550,13 @@ function PublishModelContent() {
       showAlert(t.alerts.fileUploadSuccess, 'success')
       
     } catch (error) {
-      console.error('Multipart upload error:', error)
-      throw error
+      if (error instanceof Error && error.message === 'Upload cancelled by user') {
+        setUploadStatus({ ...uploadStatus, [fileType]: 'idle' })
+        showAlert('Upload cancelled', 'info')
+      } else {
+        console.error('Multipart upload error:', error)
+        throw error
+      }
     }
   }
   
@@ -770,7 +898,18 @@ function PublishModelContent() {
                     style={{ width: `${uploadProgress.coverImage}%` }}
                   ></div>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">{t.uploading} {uploadProgress.coverImage}%</p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-sm text-muted-foreground">{t.uploading} {uploadProgress.coverImage}%</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancelUpload('coverImage')}
+                    className="text-xs"
+                  >
+                    {t.cancelUpload || "取消上传"}
+                  </Button>
+                </div>
               </div>
             )}
             {!isUploadingCover && details.coverImageUrl && (
@@ -917,7 +1056,18 @@ function PublishModelContent() {
                     style={{ width: `${uploadProgress.referenceAudio}%` }}
                   ></div>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">{t.uploading} {uploadProgress.referenceAudio}%</p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-sm text-muted-foreground">{t.uploading} {uploadProgress.referenceAudio}%</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancelUpload('referenceAudio')}
+                    className="text-xs"
+                  >
+                    {t.cancelUpload || "取消上传"}
+                  </Button>
+                </div>
               </div>
             )}
             {uploadStatus.referenceAudio === 'success' && (
@@ -977,16 +1127,27 @@ function PublishModelContent() {
                   {t.step3.audioFormat}
                 </p>
                 {uploadStatus.demoAudio === 'uploading' && (
-                  <div className="mt-6">
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div
-                        className="bg-primary h-2.5 rounded-full transition-all duration-300"
-                        style={{ width: `${uploadProgress.demoAudio}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">{t.uploading} {uploadProgress.demoAudio}%</p>
-                  </div>
-                )}
+              <div className="mt-6">
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div
+                    className="bg-primary h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress.demoAudio}%` }}
+                  ></div>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-sm text-muted-foreground">{t.uploading} {uploadProgress.demoAudio}%</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancelUpload('demoAudio')}
+                    className="text-xs"
+                  >
+                    {t.cancelUpload || "取消上传"}
+                  </Button>
+                </div>
+              </div>
+            )}
                 {uploadStatus.demoAudio === 'success' && (
                   <div className="mt-6 flex items-center justify-center text-green-600">
                     <CheckCircle className="h-5 w-5 mr-2" />
@@ -1052,7 +1213,18 @@ function PublishModelContent() {
                       style={{ width: `${uploadProgress.datasetFile}%` }}
                     ></div>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-2">{t.uploading} {uploadProgress.datasetFile}%</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-sm text-muted-foreground">{t.uploading} {uploadProgress.datasetFile}%</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => cancelUpload('datasetFile')}
+                      className="text-xs"
+                    >
+                      {t.cancelUpload || "取消上传"}
+                    </Button>
+                  </div>
                 </div>
               )}
               {uploadStatus.datasetFile === 'success' && (
@@ -1120,7 +1292,18 @@ function PublishModelContent() {
                     style={{ width: `${uploadProgress.modelFile}%` }}
                   ></div>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">{t.uploading} {uploadProgress.modelFile}%</p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-sm text-muted-foreground">{t.uploading} {uploadProgress.modelFile}%</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cancelUpload('modelFile')}
+                    className="text-xs"
+                  >
+                    {t.cancelUpload || "取消上传"}
+                  </Button>
+                </div>
               </div>
             )}
             {uploadStatus.modelFile === 'success' && (
