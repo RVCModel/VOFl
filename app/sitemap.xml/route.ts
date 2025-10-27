@@ -1,0 +1,100 @@
+import { NextResponse } from 'next/server'
+import { createServiceClient } from '@/lib/supabase'
+
+export async function GET() {
+  const supabase = createServiceClient()
+  
+  try {
+    // 获取所有已发布的模型
+    const { data: models } = await supabase
+      .from('models')
+      .select('id, updated_at')
+      .eq('status', 'published')
+      .order('updated_at', { ascending: false })
+    
+    // 获取所有已发布的数据集
+    const { data: datasets } = await supabase
+      .from('datasets')
+      .select('id, updated_at')
+      .eq('status', 'published')
+      .order('updated_at', { ascending: false })
+    
+    // 获取所有公开的用户资料
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, updated_at')
+      .order('updated_at', { ascending: false })
+    
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vofl.com'
+    
+    // 创建XML站点地图
+    const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+      <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+        <!-- 首页 -->
+        <url>
+          <loc>${baseUrl}</loc>
+          <lastmod>${new Date().toISOString()}</lastmod>
+          <changefreq>daily</changefreq>
+          <priority>1.0</priority>
+        </url>
+        
+        <!-- 模型列表页 -->
+        <url>
+          <loc>${baseUrl}/models</loc>
+          <lastmod>${new Date().toISOString()}</lastmod>
+          <changefreq>daily</changefreq>
+          <priority>0.9</priority>
+        </url>
+        
+        <!-- 数据集列表页 -->
+        <url>
+          <loc>${baseUrl}/datasets</loc>
+          <lastmod>${new Date().toISOString()}</lastmod>
+          <changefreq>daily</changefreq>
+          <priority>0.9</priority>
+        </url>
+        
+        <!-- 模型详情页 -->
+        ${models?.map(model => `
+        <url>
+          <loc>${baseUrl}/models/${model.id}</loc>
+          <lastmod>${new Date(model.updated_at).toISOString()}</lastmod>
+          <changefreq>weekly</changefreq>
+          <priority>0.8</priority>
+        </url>
+        `).join('') || ''}
+        
+        <!-- 数据集详情页 -->
+        ${datasets?.map(dataset => `
+        <url>
+          <loc>${baseUrl}/datasets/${dataset.id}</loc>
+          <lastmod>${new Date(dataset.updated_at).toISOString()}</lastmod>
+          <changefreq>weekly</changefreq>
+          <priority>0.8</priority>
+        </url>
+        `).join('') || ''}
+        
+        <!-- 用户资料页 -->
+        ${profiles?.map(profile => `
+        <url>
+          <loc>${baseUrl}/profile/${profile.id}</loc>
+          <lastmod>${new Date(profile.updated_at).toISOString()}</lastmod>
+          <changefreq>monthly</changefreq>
+          <priority>0.7</priority>
+        </url>
+        `).join('') || ''}
+      </urlset>
+    `
+    
+    return new NextResponse(sitemap, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/xml',
+        'Cache-Control': 'public, max-age=3600, s-maxage=86400', // 缓存1小时，CDN缓存1天
+      },
+    })
+  } catch (error) {
+    console.error('Error generating sitemap:', error)
+    return new NextResponse('Error generating sitemap', { status: 500 })
+  }
+}
