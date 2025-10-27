@@ -33,7 +33,7 @@ interface EditProfileDialogProps {
 }
 
 export function EditProfileDialog({ isOpen, onClose, profile, onProfileUpdate }: EditProfileDialogProps) {
-  const { user } = useAuth()
+  const { user, session } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [isUploadingCover, setIsUploadingCover] = useState(false)
@@ -87,11 +87,16 @@ export function EditProfileDialog({ isOpen, onClose, profile, onProfileUpdate }:
       return
     }
 
+    // 检查是否有有效的会话
+    if (!session || !session.access_token) {
+      toast.error('请先登录')
+      return
+    }
+
     setIsUploadingAvatar(true)
     setUploadProgress(prev => ({ ...prev, avatar: 0 }))
     
     try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token
       const formData = new FormData()
       formData.append('file', file)
       formData.append('type', 'cover') // 使用cover类型，因为头像也是图片
@@ -107,7 +112,7 @@ export function EditProfileDialog({ isOpen, onClose, profile, onProfileUpdate }:
       const response = await fetch('/api/upload-r2', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: formData
       })
@@ -116,7 +121,8 @@ export function EditProfileDialog({ isOpen, onClose, profile, onProfileUpdate }:
       setUploadProgress(prev => ({ ...prev, avatar: 100 }))
 
       if (!response.ok) {
-        throw new Error('上传失败')
+        const errorData = await response.json()
+        throw new Error(errorData.error || '上传失败')
       }
 
       const data = await response.json()
@@ -132,7 +138,7 @@ export function EditProfileDialog({ isOpen, onClose, profile, onProfileUpdate }:
       }, 1000)
     } catch (error) {
       console.error('Error uploading avatar:', error)
-      toast.error('头像上传失败，请重试')
+      toast.error(`头像上传失败: ${error instanceof Error ? error.message : '未知错误'}`)
       setUploadProgress(prev => ({ ...prev, avatar: 0 }))
     } finally {
       setIsUploadingAvatar(false)
@@ -158,11 +164,16 @@ export function EditProfileDialog({ isOpen, onClose, profile, onProfileUpdate }:
       return
     }
 
+    // 检查是否有有效的会话
+    if (!session || !session.access_token) {
+      toast.error('请先登录')
+      return
+    }
+
     setIsUploadingCover(true)
     setUploadProgress(prev => ({ ...prev, cover: 0 }))
     
     try {
-      const token = (await supabase.auth.getSession()).data.session?.access_token
       const formData = new FormData()
       formData.append('file', file)
       formData.append('type', 'cover')
@@ -178,7 +189,7 @@ export function EditProfileDialog({ isOpen, onClose, profile, onProfileUpdate }:
       const response = await fetch('/api/upload-r2', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: formData
       })
@@ -187,7 +198,8 @@ export function EditProfileDialog({ isOpen, onClose, profile, onProfileUpdate }:
       setUploadProgress(prev => ({ ...prev, cover: 100 }))
 
       if (!response.ok) {
-        throw new Error('上传失败')
+        const errorData = await response.json()
+        throw new Error(errorData.error || '上传失败')
       }
 
       const data = await response.json()
@@ -203,7 +215,7 @@ export function EditProfileDialog({ isOpen, onClose, profile, onProfileUpdate }:
       }, 1000)
     } catch (error) {
       console.error('Error uploading cover:', error)
-      toast.error('封面上传失败，请重试')
+      toast.error(`封面上传失败: ${error instanceof Error ? error.message : '未知错误'}`)
       setUploadProgress(prev => ({ ...prev, cover: 0 }))
     } finally {
       setIsUploadingCover(false)
