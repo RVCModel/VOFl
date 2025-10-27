@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
 import { createServiceClient } from '@/lib/supabase'
-import formidable from 'formidable'
-import fs from 'fs'
 
 // 创建 Supabase 服务端客户端
 const supabase = createServiceClient()
@@ -26,13 +24,21 @@ async function verifyUser(request: NextRequest) {
   }
 
   const token = authHeader.substring(7)
-  const { data: { user }, error } = await supabase.auth.getUser(token)
   
-  if (error || !user) {
+  try {
+    // 使用 access token 验证用户身份
+    const { data: { user }, error } = await supabase.auth.getUser(token)
+    
+    if (error || !user) {
+      console.error('Auth error:', error)
+      return null
+    }
+    
+    return user
+  } catch (error) {
+    console.error('Auth exception:', error)
     return null
   }
-  
-  return user
 }
 
 // 生成唯一文件名
@@ -41,28 +47,6 @@ function generateFileName(originalName: string, userId: string, type: string) {
   const randomString = Math.random().toString(36).substring(2, 15)
   const extension = originalName.split('.').pop()
   return `${type}/${userId}/${timestamp}-${randomString}.${extension}`
-}
-
-// 手动解析表单数据
-async function parseFormData(request: NextRequest): Promise<{ fields: any, files: any }> {
-  return new Promise((resolve, reject) => {
-    const form = formidable({
-      maxFileSize: 500 * 1024 * 1024, // 500MB
-      multiples: false,
-    })
-
-    // 将NextRequest转换为formidable可接受的格式
-    const req = request as any
-    req.headers = Object.fromEntries(request.headers.entries())
-
-    form.parse(req, (err, fields, files) => {
-      if (err) {
-        reject(err)
-        return
-      }
-      resolve({ fields, files })
-    })
-  })
 }
 
 export async function POST(request: NextRequest) {
@@ -74,9 +58,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 解析表单数据
-    const { fields, files } = await parseFormData(request)
-    const file = files.file?.[0]
-    const type = fields.type?.[0] || 'general'
+    const formData = await request.formData()
+    const file = formData.get('file') as File
+    const type = formData.get('type') as string || 'general'
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -93,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     const typeAllowedTypes = allowedTypes[type as keyof typeof allowedTypes] || allowedTypes.general
-    if (!typeAllowedTypes.includes('*') && !typeAllowedTypes.includes(file.mimetype || '')) {
+    if (!typeAllowedTypes.includes('*') && !typeAllowedTypes.includes(file.type || '')) {
       return NextResponse.json({ 
         error: `Invalid file type. Allowed types: ${typeAllowedTypes.join(', ')}` 
       }, { status: 400 })
@@ -117,10 +101,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 生成唯一文件名
-    const fileName = generateFileName(file.originalFilename || 'file', user.id, type)
+    const fileName = generateFileName(file.name || 'file', user.id, type)
 
-    // 读取文件内容
-    const fileContent = await fs.promises.readFile(file.filepath)
+    // 将文件转换为缓冲区
+    const buffer = Buffer.from(await file.arrayBuffer())
 
     // 上传文件到 Cloudflare R2
     const upload = new Upload({
@@ -128,8 +112,8 @@ export async function POST(request: NextRequest) {
       params: {
         Bucket: process.env.R2_BUCKET_NAME!,
         Key: fileName,
-        Body: fileContent,
-        ContentType: file.mimetype || 'application/octet-stream',
+        Body: buffer,
+        ContentType: file.type || 'application/octet-stream',
       },
     })
 
@@ -141,9 +125,9 @@ export async function POST(request: NextRequest) {
     // 返回文件信息
     return NextResponse.json({
       url: publicUrl,
-      name: file.originalFilename,
+      name: file.name,
       size: file.size,
-      type: file.mimetype,
+      type: file.type,
       key: fileName
     })
 
