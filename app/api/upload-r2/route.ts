@@ -3,6 +3,19 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 import { Upload } from '@aws-sdk/lib-storage'
 import { createServiceClient } from '@/lib/supabase'
 
+// 设置CORS头
+function setCorsHeaders(response: NextResponse) {
+  response.headers.set('Access-Control-Allow-Origin', '*')
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  return response
+}
+
+// 处理OPTIONS请求
+export async function OPTIONS(request: NextRequest) {
+  return setCorsHeaders(new NextResponse(null, { status: 200 }))
+}
+
 // 创建 Supabase 服务端客户端
 const supabase = createServiceClient()
 
@@ -54,7 +67,7 @@ export async function POST(request: NextRequest) {
     // 验证用户身份
     const user = await verifyUser(request)
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return setCorsHeaders(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
     }
 
     // 解析表单数据
@@ -63,7 +76,7 @@ export async function POST(request: NextRequest) {
     const type = formData.get('type') as string || 'general'
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      return setCorsHeaders(NextResponse.json({ error: 'No file provided' }, { status: 400 }))
     }
 
     // 验证文件类型和大小
@@ -78,9 +91,9 @@ export async function POST(request: NextRequest) {
 
     const typeAllowedTypes = allowedTypes[type as keyof typeof allowedTypes] || allowedTypes.general
     if (!typeAllowedTypes.includes('*') && !typeAllowedTypes.includes(file.type || '')) {
-      return NextResponse.json({ 
+      return setCorsHeaders(NextResponse.json({ 
         error: `Invalid file type. Allowed types: ${typeAllowedTypes.join(', ')}` 
-      }, { status: 400 })
+      }, { status: 400 }))
     }
 
     // 根据文件类型设置不同的最大大小限制
@@ -97,7 +110,7 @@ export async function POST(request: NextRequest) {
     const maxSizeMB = maxSize / (1024 * 1024)
     
     if (file.size > maxSize) {
-      return NextResponse.json({ error: `File too large. Maximum size is ${maxSizeMB}MB` }, { status: 400 })
+      return setCorsHeaders(NextResponse.json({ error: `File too large. Maximum size is ${maxSizeMB}MB` }, { status: 400 }))
     }
 
     // 生成唯一文件名
@@ -123,13 +136,13 @@ export async function POST(request: NextRequest) {
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`
 
     // 返回文件信息
-    return NextResponse.json({
+    return setCorsHeaders(NextResponse.json({
       url: publicUrl,
       name: file.name,
       size: file.size,
       type: file.type,
       key: fileName
-    })
+    }))
 
   } catch (error) {
     console.error('Upload error:', error)
@@ -137,10 +150,10 @@ export async function POST(request: NextRequest) {
     console.error('R2_PUBLIC_URL:', process.env.R2_PUBLIC_URL)
     console.error('R2_BUCKET_NAME:', process.env.R2_BUCKET_NAME)
     
-    return NextResponse.json(
+    return setCorsHeaders(NextResponse.json(
       { error: 'Failed to upload file', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
-    )
+    ))
   }
 }
 
@@ -149,19 +162,19 @@ export async function DELETE(request: NextRequest) {
     // 验证用户身份
     const user = await verifyUser(request)
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return setCorsHeaders(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
     }
 
     // 获取请求体
     const { key } = await request.json()
 
     if (!key) {
-      return NextResponse.json({ error: 'File key is required' }, { status: 400 })
+      return setCorsHeaders(NextResponse.json({ error: 'File key is required' }, { status: 400 }))
     }
 
     // 验证用户是否有权限删除此文件（文件路径应包含用户ID）
     if (!key.includes(`/${user.id}/`)) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 })
+      return setCorsHeaders(NextResponse.json({ error: 'Permission denied' }, { status: 403 }))
     }
 
     // 从 Cloudflare R2 删除文件
@@ -172,13 +185,13 @@ export async function DELETE(request: NextRequest) {
 
     await r2Client.send(command)
 
-    return NextResponse.json({ success: true })
+    return setCorsHeaders(NextResponse.json({ success: true }))
 
   } catch (error) {
     console.error('Delete error:', error)
-    return NextResponse.json(
+    return setCorsHeaders(NextResponse.json(
       { error: 'Failed to delete file' },
       { status: 500 }
-    )
+    ))
   }
 }

@@ -270,19 +270,6 @@ function PublishModelContent() {
     setUploadProgress({ ...uploadProgress, [fileType]: 0 })
     
     try {
-      // 模拟上传进度
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          const newProgress = { ...prev }
-          if (newProgress[fileType] < 90) {
-            newProgress[fileType] += 10
-          }
-          return newProgress
-        })
-      }, 200)
-      
-      const formData = new FormData()
-      formData.append('file', file)
       // 将前端文件类型转换为后端API期望的文件类型
       let apiFileType = fileType
       if (fileType === 'modelFile') apiFileType = 'model-file'
@@ -291,38 +278,157 @@ function PublishModelContent() {
       else if (fileType === 'demoAudio') apiFileType = 'demo-audio'
       else if (fileType === 'coverImage') apiFileType = 'cover'
       
-      formData.append('type', apiFileType)
-      
       // 获取访问令牌
       if (!session) {
         throw new Error(t.alerts.userNotLoggedIn)
       }
       
-      const response = await fetch('/api/upload-r2', {
+      // 对于大文件使用分块上传
+      if (file.size > 10 * 1024 * 1024) {
+        await uploadLargeFile(file, apiFileType, fileType)
+      } else {
+        await uploadSmallFile(file, apiFileType, fileType)
+      }
+    } catch (error) {
+      console.error(t.alerts.uploadFailed, error)
+      setUploadStatus({ ...uploadStatus, [fileType]: 'error' })
+      showAlert(t.alerts.fileUploadFailed, 'error')
+    }
+  }
+  
+  // 上传小文件（使用原始API）
+  const uploadSmallFile = async (file: File, apiFileType: string, fileType: string) => {
+    // 模拟上传进度
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        const newProgress = { ...prev }
+        if (newProgress[fileType] < 90) {
+          newProgress[fileType] += 10
+        }
+        return newProgress
+      })
+    }, 200)
+    
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('type', apiFileType)
+    
+    const response = await fetch('/api/upload-r2', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: formData,
+    })
+    
+    clearInterval(progressInterval)
+    setUploadProgress({ ...uploadProgress, [fileType]: 100 })
+    
+    if (!response.ok) {
+      throw new Error(t.alerts.uploadFailed)
+    }
+    
+    const result = await response.json()
+    setFiles({ ...files, [fileType]: file })
+    setUploadStatus({ ...uploadStatus, [fileType]: 'success' })
+    // 保存上传后的文件URL
+    setFileUrls({ ...fileUrls, [fileType]: result.url })
+    showAlert(t.alerts.fileUploadSuccess, 'success')
+  }
+  
+  // 上传大文件（使用分块上传）
+  const uploadLargeFile = async (file: File, apiFileType: string, fileType: string) => {
+    try {
+      // 1. 初始化多部分上传
+      const initResponse = await fetch('/api/upload-r2-multipart', {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: formData,
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: apiFileType,
+          fileSize: file.size
+        })
       })
       
-      clearInterval(progressInterval)
-      setUploadProgress({ ...uploadProgress, [fileType]: 100 })
-      
-      if (!response.ok) {
-        throw new Error(t.alerts.uploadFailed)
+      if (!initResponse.ok) {
+        throw new Error('Failed to initialize multipart upload')
       }
       
-      const result = await response.json()
+      const { uploadId, key } = await initResponse.json()
+      
+      // 2. 分块上传
+      const chunkSize = 5 * 1024 * 1024 // 5MB chunks
+      const totalChunks = Math.ceil(file.size / chunkSize)
+      const parts = []
+      
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * chunkSize
+        const end = Math.min(start + chunkSize, file.size)
+        const chunk = file.slice(start, end)
+        
+        // 上传分块
+        const formData = new FormData()
+        formData.append('uploadId', uploadId)
+        formData.append('key', key)
+        formData.append('partNumber', (chunkIndex + 1).toString())
+        formData.append('chunk', chunk)
+        
+        const chunkResponse = await fetch('/api/upload-r2-chunk', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: formData
+        })
+        
+        if (!chunkResponse.ok) {
+          throw new Error(`Failed to upload chunk ${chunkIndex + 1}`)
+        }
+        
+        const { etag } = await chunkResponse.json()
+        parts.push({
+          PartNumber: chunkIndex + 1,
+          ETag: etag
+        })
+        
+        // 更新进度
+        const progress = Math.round(((chunkIndex + 1) / totalChunks) * 90)
+        setUploadProgress(prev => ({ ...prev, [fileType]: progress }))
+      }
+      
+      // 3. 完成多部分上传
+      const completeResponse = await fetch('/api/upload-r2-multipart', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          uploadId,
+          key,
+          parts
+        })
+      })
+      
+      if (!completeResponse.ok) {
+        throw new Error('Failed to complete multipart upload')
+      }
+      
+      const result = await completeResponse.json()
+      
+      setUploadProgress({ ...uploadProgress, [fileType]: 100 })
       setFiles({ ...files, [fileType]: file })
       setUploadStatus({ ...uploadStatus, [fileType]: 'success' })
       // 保存上传后的文件URL
       setFileUrls({ ...fileUrls, [fileType]: result.url })
       showAlert(t.alerts.fileUploadSuccess, 'success')
+      
     } catch (error) {
-      console.error(t.alerts.uploadFailed, error)
-      setUploadStatus({ ...uploadStatus, [fileType]: 'error' })
-      showAlert(t.alerts.fileUploadFailed, 'error')
+      console.error('Multipart upload error:', error)
+      throw error
     }
   }
   
