@@ -423,6 +423,8 @@ function PublishModelContent() {
           accessKeyId,
           secretAccessKey,
         },
+        // 添加forcePathStyle以确保正确的URL格式
+        forcePathStyle: true,
       })
 
       // 3. 上传分块

@@ -27,6 +27,8 @@ const r2Client = new S3Client({
     accessKeyId: process.env.R2_ACCESS_KEY_ID!,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
   },
+  // 添加forcePathStyle以确保正确的URL格式
+  forcePathStyle: true,
 })
 
 // 验证用户身份
