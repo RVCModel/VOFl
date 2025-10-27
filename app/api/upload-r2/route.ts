@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { Upload } from '@aws-sdk/lib-storage'
 import { createServiceClient } from '@/lib/supabase'
+import formidable from 'formidable'
+import fs from 'fs'
 
 // 创建 Supabase 服务端客户端
 const supabase = createServiceClient()
@@ -41,6 +43,28 @@ function generateFileName(originalName: string, userId: string, type: string) {
   return `${type}/${userId}/${timestamp}-${randomString}.${extension}`
 }
 
+// 手动解析表单数据
+async function parseFormData(request: NextRequest): Promise<{ fields: any, files: any }> {
+  return new Promise((resolve, reject) => {
+    const form = formidable({
+      maxFileSize: 500 * 1024 * 1024, // 500MB
+      multiples: false,
+    })
+
+    // 将NextRequest转换为formidable可接受的格式
+    const req = request as any
+    req.headers = Object.fromEntries(request.headers.entries())
+
+    form.parse(req, (err, fields, files) => {
+      if (err) {
+        reject(err)
+        return
+      }
+      resolve({ fields, files })
+    })
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     // 验证用户身份
@@ -49,10 +73,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // 获取表单数据
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const type = formData.get('type') as string || 'general'
+    // 解析表单数据
+    const { fields, files } = await parseFormData(request)
+    const file = files.file?.[0]
+    const type = fields.type?.[0] || 'general'
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -69,7 +93,7 @@ export async function POST(request: NextRequest) {
     }
 
     const typeAllowedTypes = allowedTypes[type as keyof typeof allowedTypes] || allowedTypes.general
-    if (!typeAllowedTypes.includes('*') && !typeAllowedTypes.includes(file.type)) {
+    if (!typeAllowedTypes.includes('*') && !typeAllowedTypes.includes(file.mimetype || '')) {
       return NextResponse.json({ 
         error: `Invalid file type. Allowed types: ${typeAllowedTypes.join(', ')}` 
       }, { status: 400 })
@@ -93,7 +117,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 生成唯一文件名
-    const fileName = generateFileName(file.name, user.id, type)
+    const fileName = generateFileName(file.originalFilename || 'file', user.id, type)
+
+    // 读取文件内容
+    const fileContent = await fs.promises.readFile(file.filepath)
 
     // 上传文件到 Cloudflare R2
     const upload = new Upload({
@@ -101,8 +128,8 @@ export async function POST(request: NextRequest) {
       params: {
         Bucket: process.env.R2_BUCKET_NAME!,
         Key: fileName,
-        Body: file.stream(),
-        ContentType: file.type,
+        Body: fileContent,
+        ContentType: file.mimetype || 'application/octet-stream',
       },
     })
 
@@ -114,9 +141,9 @@ export async function POST(request: NextRequest) {
     // 返回文件信息
     return NextResponse.json({
       url: publicUrl,
-      name: file.name,
+      name: file.originalFilename,
       size: file.size,
-      type: file.type,
+      type: file.mimetype,
       key: fileName
     })
 

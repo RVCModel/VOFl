@@ -47,10 +47,10 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // 模型文件大小限制为100MB
-    if (type === 'model-file' && file.size > 100 * 1024 * 1024) {
+    // 模型文件大小限制为500MB
+    if (type === 'model-file' && file.size > 500 * 1024 * 1024) {
       return NextResponse.json(
-        { error: 'Model file size must be less than 100MB' },
+        { error: 'Model file size must be less than 500MB' },
         { status: 400 }
       )
     }
