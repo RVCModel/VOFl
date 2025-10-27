@@ -69,7 +69,22 @@ export async function POST(request: NextRequest) {
     }
 
     const typeAllowedTypes = allowedTypes[type as keyof typeof allowedTypes] || allowedTypes.general
-    if (!typeAllowedTypes.includes('*') && !typeAllowedTypes.includes(file.type)) {
+    
+    // 检查MIME类型
+    const hasValidMimeType = typeAllowedTypes.includes('*') || typeAllowedTypes.includes(file.type)
+    
+    // 如果MIME类型不匹配，检查文件扩展名作为回退
+    const fileExtension = file.name.split('.').pop()?.toLowerCase() || ''
+    const audioExtensions = ['wav', 'mp3', 'ogg', 'm4a']
+    const zipExtensions = ['zip', 'rar', '7z']
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'webp']
+    
+    const hasValidExtension = 
+      (type === 'reference-audio' || type === 'demo-audio') && audioExtensions.includes(fileExtension) ||
+      (type === 'model-file' || type === 'dataset-file') && zipExtensions.includes(fileExtension) ||
+      (type === 'cover') && imageExtensions.includes(fileExtension)
+    
+    if (!typeAllowedTypes.includes('*') && !hasValidMimeType && !hasValidExtension) {
       return NextResponse.json({ 
         error: `Invalid file type. Allowed types: ${typeAllowedTypes.join(', ')}` 
       }, { status: 400 })

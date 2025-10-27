@@ -214,117 +214,151 @@ function PublishModelContent() {
     }
   }
   
+  // 直传到R2的上传函数
+  const uploadToR2 = async (file: File, fileType: string = 'general'): Promise<string> => {
+    // 获取当前用户的Supabase token
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) {
+      throw new Error('User not authenticated')
+    }
+
+    // Step 1. 向API获取上传URL
+    const res = await fetch('/api/r2-upload-url', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: file.type,
+        fileType: fileType
+      }),
+    })
+
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed to get upload URL')
+
+    const { uploadUrl, publicUrl } = data
+
+    // Step 2. 直接上传到Cloudflare R2
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    })
+
+    if (!uploadRes.ok) throw new Error('Upload failed')
+
+    // Step 3. 上传完成后返回publicUrl
+    return publicUrl
+  }
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, fileType: string) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const file = e.target.files?.[0];
+    if (!file) return;
     
     // 验证文件类型和大小
     if (fileType === 'referenceAudio' || fileType === 'demoAudio') {
-      const allowedAudioTypes = ['audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/ogg', 'audio/m4a']
+      const allowedAudioTypes = ['audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/ogg', 'audio/m4a'];
       if (!allowedAudioTypes.includes(file.type)) {
-        showAlert(t.alerts.validAudioFile, 'error')
-        return
+        showAlert(t.alerts.validAudioFile, 'error');
+        return;
       }
       if (file.size > 10 * 1024 * 1024) {
-        showAlert(t.alerts.audioFileSize, 'error')
-        return
+        showAlert(t.alerts.audioFileSize, 'error');
+        return;
       }
     } else if (fileType === 'modelFile') {
       // 根据发布类型验证不同的文件格式
       if (basicInfo.publishType === 'model') {
         // 模型文件验证
         if (file.type !== 'application/zip' && !file.name.endsWith('.zip')) {
-          showAlert(t.alerts.validModelFile, 'error')
-          return
+          showAlert(t.alerts.validModelFile, 'error');
+          return;
         }
         if (file.size > 500 * 1024 * 1024) {
-          showAlert(t.alerts.modelFileSize, 'error')
-          return
+          showAlert(t.alerts.modelFileSize, 'error');
+          return;
         }
       } else {
         // 数据集示例文件验证
-        const allowedAudioTypes = ['audio/wav', 'audio/mp3', 'audio/mpeg']
+        const allowedAudioTypes = ['audio/wav', 'audio/mp3', 'audio/mpeg'];
         if (!allowedAudioTypes.includes(file.type) && !file.name.endsWith('.wav') && !file.name.endsWith('.mp3')) {
-          showAlert(t.alerts.validSampleFile, 'error')
-          return
+          showAlert(t.alerts.validSampleFile, 'error');
+          return;
         }
         if (file.size > 10 * 1024 * 1024) {
-          showAlert(t.alerts.sampleFileSize, 'error')
-          return
+          showAlert(t.alerts.sampleFileSize, 'error');
+          return;
         }
       }
     } else if (fileType === 'datasetFile') {
       // 数据集文件验证
       if (file.type !== 'application/zip' && !file.name.endsWith('.zip')) {
-        showAlert(t.alerts.validDatasetFile, 'error')
-        return
+        showAlert(t.alerts.validDatasetFile, 'error');
+        return;
       }
       if (file.size > 500 * 1024 * 1024) {
-        showAlert(t.alerts.datasetFileSize, 'error')
-        return
+        showAlert(t.alerts.datasetFileSize, 'error');
+        return;
       }
     }
     
-    setFiles({ ...files, [fileType]: file })
-    setUploadStatus({ ...uploadStatus, [fileType]: 'uploading' })
-    setUploadProgress({ ...uploadProgress, [fileType]: 0 })
+    setFiles({ ...files, [fileType]: file });
+    setUploadStatus({ ...uploadStatus, [fileType]: 'uploading' });
+    setUploadProgress({ ...uploadProgress, [fileType]: 0 });
     
     try {
       // 模拟上传进度
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
-          const newProgress = { ...prev }
+          const newProgress = { ...prev };
           if (newProgress[fileType] < 90) {
-            newProgress[fileType] += 10
+            newProgress[fileType] += 10;
           }
-          return newProgress
-        })
-      }, 200)
+          return newProgress;
+        });
+      }, 200);
       
-      const formData = new FormData()
-      formData.append('file', file)
       // 将前端文件类型转换为后端API期望的文件类型
-      let apiFileType = fileType
-      if (fileType === 'modelFile') apiFileType = 'model-file'
-      else if (fileType === 'datasetFile') apiFileType = 'dataset-file'
-      else if (fileType === 'referenceAudio') apiFileType = 'reference-audio'
-      else if (fileType === 'demoAudio') apiFileType = 'demo-audio'
-      else if (fileType === 'coverImage') apiFileType = 'cover'
-      
-      formData.append('type', apiFileType)
-      
-      // 获取访问令牌
-      if (!session) {
-        throw new Error(t.alerts.userNotLoggedIn)
+      let apiFileType = fileType;
+      if (fileType === 'modelFile') {
+        // 如果是数据集样本文件，使用reference-audio类型
+        if (basicInfo.publishType !== 'model') {
+          apiFileType = 'reference-audio';
+        } else {
+          apiFileType = 'model-file';
+        }
+      } else if (fileType === 'datasetFile') {
+        apiFileType = 'dataset-file';
+      } else if (fileType === 'referenceAudio') {
+        apiFileType = 'reference-audio';
+      } else if (fileType === 'demoAudio') {
+        apiFileType = 'demo-audio';
+      } else if (fileType === 'coverImage') {
+        apiFileType = 'cover';
       }
       
-      const response = await fetch('/api/upload-r2', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: formData,
-      })
+      // 使用直传R2的方式上传文件
+      const fileUrl = await uploadToR2(file, apiFileType);
       
-      clearInterval(progressInterval)
-      setUploadProgress({ ...uploadProgress, [fileType]: 100 })
+      clearInterval(progressInterval);
+      setUploadProgress({ ...uploadProgress, [fileType]: 100 });
       
-      if (!response.ok) {
-        throw new Error(t.alerts.uploadFailed)
-      }
-      
-      const result = await response.json()
-      setFiles({ ...files, [fileType]: file })
-      setUploadStatus({ ...uploadStatus, [fileType]: 'success' })
+      setFiles({ ...files, [fileType]: file });
+      setUploadStatus({ ...uploadStatus, [fileType]: 'success' });
       // 保存上传后的文件URL
-      setFileUrls({ ...fileUrls, [fileType]: result.url })
-      showAlert(t.alerts.fileUploadSuccess, 'success')
+      setFileUrls({ ...fileUrls, [fileType]: fileUrl });
+      showAlert(t.alerts.fileUploadSuccess, 'success');
     } catch (error) {
-      console.error(t.alerts.uploadFailed, error)
-      setUploadStatus({ ...uploadStatus, [fileType]: 'error' })
-      showAlert(t.alerts.fileUploadFailed, 'error')
+      console.error(t.alerts.uploadFailed, error);
+      setUploadStatus({ ...uploadStatus, [fileType]: 'error' });
+      showAlert(t.alerts.fileUploadFailed, 'error');
     }
-  }
+  };
   
   const handleCoverImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -355,32 +389,13 @@ function PublishModelContent() {
         })
       }, 200)
       
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('type', 'cover')
-      
-      // 获取访问令牌
-      if (!session) {
-        throw new Error(t.alerts.userNotLoggedIn)
-      }
-      
-      const response = await fetch('/api/upload-r2', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: formData,
-      })
+      // 使用直传R2的方式上传文件
+      const fileUrl = await uploadToR2(file, 'cover')
       
       clearInterval(progressInterval)
       setUploadProgress({ ...uploadProgress, coverImage: 100 })
       
-      if (!response.ok) {
-        throw new Error(t.alerts.uploadFailed)
-      }
-      
-      const result = await response.json()
-      setDetails({ ...details, coverImageUrl: result.url })
+      setDetails({ ...details, coverImageUrl: fileUrl })
       setIsUploadingCover(false)
       showAlert(t.alerts.coverImageUploadSuccess, 'success')
     } catch (error) {
