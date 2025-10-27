@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useLocale } from "@/components/locale-provider"
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { supabase } from "@/lib/supabase"
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const { locale } = useLocale()
   const t = translations[locale]
   const router = useRouter()
@@ -170,5 +170,25 @@ export default function ResetPasswordPage() {
         </Card>
       </div>
     </PublicOnlyRoute>
+  )
+}
+
+// 添加加载组件
+function ResetPasswordLoading() {
+  return (
+    <PublicOnlyRoute>
+      <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    </PublicOnlyRoute>
+  )
+}
+
+// 使用 Suspense 包装 ResetPasswordContent
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<ResetPasswordLoading />}>
+      <ResetPasswordContent />
+    </Suspense>
   )
 }

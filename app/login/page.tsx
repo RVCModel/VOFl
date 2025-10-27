@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/components/auth-context"
@@ -15,7 +15,7 @@ import { createServiceClient } from '@/lib/supabase'
 import { translations } from "@/lib/i18n"
 import { useLocale } from "@/components/locale-provider"
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { signIn, signInWithGoogle, user, session } = useAuth()
@@ -215,5 +215,23 @@ export default function LoginPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+// 添加加载组件
+function LoginLoading() {
+  return (
+    <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+    </div>
+  )
+}
+
+// 使用 Suspense 包装 LoginContent
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginContent />
+    </Suspense>
   )
 }
