@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import { createServiceClient } from '@/lib/supabase'
 import ModelDetailClient from './client'
 
+// 强制页面动态渲染
+export const dynamic = 'force-dynamic'
+
 interface PageProps {
   params: Promise<{ id: string }>
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
