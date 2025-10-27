@@ -71,25 +71,27 @@ export async function POST(request: NextRequest) {
       return setCorsHeaders(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
     }
 
-    const { fileName, fileType, fileSize, totalChunks } = await request.json()
+    const { fileName, fileType, fileCategory, fileSize, totalChunks } = await request.json()
 
-    if (!fileName || !fileType || !totalChunks) {
+    if (!fileName || !fileType || !fileCategory || !totalChunks) {
       return setCorsHeaders(NextResponse.json({ error: 'Missing required parameters' }, { status: 400 }))
     }
 
-    // 验证文件类型
-    const allowedTypes = {
-      'model-file': ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
-      'dataset-file': ['application/zip', 'application/x-zip-compressed', 'application/x-rar-compressed', 'application/x-7z-compressed'],
-    }
+    // 验证文件类型（MIME类型）
+    const allowedTypes = [
+      'application/zip', 
+      'application/x-zip-compressed', 
+      'application/octet-stream',
+      'application/x-rar-compressed', 
+      'application/x-7z-compressed'
+    ]
 
-    const typeAllowedTypes = allowedTypes[fileType as keyof typeof allowedTypes]
-    if (!typeAllowedTypes) {
+    if (!allowedTypes.includes(fileType)) {
       return setCorsHeaders(NextResponse.json({ error: 'Invalid file type' }, { status: 400 }))
     }
 
     // 生成唯一文件名
-    const key = generateFileName(fileName, user.id, fileType)
+    const key = generateFileName(fileName, user.id, fileCategory)
 
     // 创建多部分上传
     const createCommand = new CreateMultipartUploadCommand({

@@ -403,6 +403,7 @@ function PublishModelContent() {
         body: JSON.stringify({
           fileName: file.name,
           fileType: file.type,
+          fileCategory: apiFileType, // 添加文件类别（model-file或dataset-file）
           fileSize: file.size,
           totalChunks
         })
