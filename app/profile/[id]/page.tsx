@@ -68,8 +68,69 @@ export default function ProfilePage() {
   useClientEffect(() => {
     if (profile) {
       document.title = `${profile.display_name || profile.username} - VOFL用户`
+      
+      // 添加结构化数据
+      const structuredData = {
+        "@context": "https://schema.org",
+        "@type": "ProfilePage",
+        "mainEntity": {
+          "@type": "Person",
+          "name": profile.display_name || profile.username,
+          "description": profile.bio || "",
+          "image": profile.avatar_url || "",
+          "url": `https://vofl.com/profile/${id}`,
+          "interactionStatistic": [
+            {
+              "@type": "InteractionCounter",
+              "interactionType": "https://schema.org/FollowAction",
+              "userInteractionCount": profile.followers_count
+            },
+            {
+              "@type": "InteractionCounter", 
+              "interactionType": "https://schema.org/LikeAction",
+              "userInteractionCount": profile.likes_count
+            }
+          ]
+        },
+        "breadcrumb": {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "首页",
+              "item": "https://vofl.com"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "用户",
+              "item": "https://vofl.com/profile"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": profile.display_name || profile.username,
+              "item": `https://vofl.com/profile/${id}`
+            }
+          ]
+        }
+      }
+      
+      // 移除旧的结构化数据
+      const oldScript = document.querySelector('script[data-structured-data="profile"]')
+      if (oldScript) {
+        document.head.removeChild(oldScript)
+      }
+      
+      // 添加新的结构化数据
+      const script = document.createElement('script')
+      script.type = 'application/ld+json'
+      script.setAttribute('data-structured-data', 'profile')
+      script.textContent = JSON.stringify(structuredData)
+      document.head.appendChild(script)
     }
-  }, [profile])
+  }, [profile, id])
 
   useEffect(() => {
     fetchProfile()
@@ -341,19 +402,19 @@ export default function ProfilePage() {
 
   return (
     <PublicRoute>
-      <div className="w-full">
+      <div className="w-full" itemScope itemType="https://schema.org/ProfilePage">
         {/* 封面图 */}
-        <div className="relative w-full h-48 bg-gray-200 dark:bg-gray-800">
+        <header className="relative w-full h-48 bg-gray-200 dark:bg-gray-800">
           {profile.cover_url ? (
             <img src={profile.cover_url} alt="封面图" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gradient-to-r from-blue-500 to-purple-600"></div>
           )}
-        </div>
+        </header>
 
         <div className="container mx-auto px-4">
           {/* 用户信息头部 */}
-          <div className="relative flex flex-col md:flex-row items-start gap-6 -mt-12 z-10">
+          <section className="relative flex flex-col md:flex-row items-start gap-6 -mt-12 z-10">
             <Avatar className="w-24 h-24 border-4 border-white dark:border-gray-950 shadow-lg">
               {profile.avatar_url ? (
                 <AvatarImage src={profile.avatar_url} alt={profile.display_name || profile.username} />
@@ -366,9 +427,9 @@ export default function ProfilePage() {
             <div className="flex-1 mt-14">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-bold">{profile.display_name || profile.username}</h1>
+                  <h1 className="text-2xl font-bold" itemProp="name">{profile.display_name || profile.username}</h1>
                   {profile.bio && (
-                    <p className="mt-2 text-muted-foreground">{profile.bio}</p>
+                    <p className="mt-2 text-muted-foreground" itemProp="description">{profile.bio}</p>
                   )}
                   <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                     <div>{profile.followers_count} {t.profile.followers}</div>
@@ -406,199 +467,213 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-          </div>
+          </section>
         </div>
         
         <div className="container mx-auto px-4 py-6">
           {/* 内容标签页 */}
-          <Tabs defaultValue="models" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-6">
-              <TabsTrigger value="models">{t.profile.models}</TabsTrigger>
-              <TabsTrigger value="datasets">{t.profile.datasets}</TabsTrigger>
-              <TabsTrigger value="likes">{t.profile.likesTab}</TabsTrigger>
-              <TabsTrigger value="collections">{t.profile.collections}</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="models" className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {models.length > 0 ? (
-                      models.map((model) => (
-                        <div key={model.id} className="space-y-2">
-                          <ModelCard
-                            id={model.id}
-                            name={model.name}
-                            coverImageUrl={model.cover_image_url}
-                            type={model.type}
-                            downloadCount={model.download_count || 0}
-                            viewCount={model.view_count || 0}
-                            isPaid={model.is_paid || false}
-                            username={profile?.username}
-                            displayName={profile?.display_name}
-                            avatarUrl={profile?.avatar_url}
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-center py-12 text-muted-foreground">
-                        {t.profile.noModels}
-                      </div>
-                    )}
-                  </div>
-            </TabsContent>
-            
-            <TabsContent value="datasets" className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {datasets.length > 0 ? (
-                      datasets.map((dataset) => (
-                        <div key={dataset.id} className="space-y-2">
-                          <DatasetCard
-                            id={dataset.id}
-                            name={dataset.name}
-                            coverImageUrl={dataset.cover_image_url}
-                            type={dataset.type}
-                            downloadCount={dataset.download_count || 0}
-                            viewCount={dataset.view_count || 0}
-                            isPaid={dataset.is_paid || false}
-                            username={profile?.username}
-                            displayName={profile?.display_name}
-                            avatarUrl={profile?.avatar_url}
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-center py-12 text-muted-foreground">
-                        {t.profile.noDatasets}
-                      </div>
-                    )}
-                  </div>
-            </TabsContent>
-            
-            <TabsContent value="likes" className="space-y-4">
-              <Tabs defaultValue="liked-models" className="w-full">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="liked-models">{t.profile.likedModels}</TabsTrigger>
-                  <TabsTrigger value="liked-datasets">{t.profile.likedDatasets}</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="liked-models" className="space-y-4">
+          <main>
+            <Tabs defaultValue="models" value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="mb-6">
+                <TabsTrigger value="models">{t.profile.models}</TabsTrigger>
+                <TabsTrigger value="datasets">{t.profile.datasets}</TabsTrigger>
+                <TabsTrigger value="likes">{t.profile.likesTab}</TabsTrigger>
+                <TabsTrigger value="collections">{t.profile.collections}</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="models" className="space-y-4">
+                <section aria-labelledby="models-heading">
+                  <h2 id="models-heading" className="sr-only">{t.profile.models}</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {likedModels.length > 0 ? (
-                      likedModels.map((model) => (
-                        <div key={model.id} className="space-y-2">
-                          <ModelCard
-                            id={model.id}
-                            name={model.name}
-                            coverImageUrl={model.cover_image_url}
-                            type={model.type}
-                            downloadCount={model.download_count || 0}
-                            viewCount={model.view_count || 0}
-                            isPaid={model.is_paid || false}
-                            username={model.profiles?.username}
-                            displayName={model.profiles?.display_name}
-                            avatarUrl={model.profiles?.avatar_url}
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-center py-12 text-muted-foreground">
-                        {t.profile.noLikedModels}
+                        {models.length > 0 ? (
+                          models.map((model) => (
+                            <div key={model.id} className="space-y-2">
+                              <ModelCard
+                                id={model.id}
+                                name={model.name}
+                                coverImageUrl={model.cover_image_url}
+                                type={model.type}
+                                downloadCount={model.download_count || 0}
+                                viewCount={model.view_count || 0}
+                                isPaid={model.is_paid || false}
+                                username={profile?.username}
+                                displayName={profile?.display_name}
+                                avatarUrl={profile?.avatar_url}
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-full text-center py-12 text-muted-foreground">
+                            {t.profile.noModels}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="liked-datasets" className="space-y-4">
+                </section>
+              </TabsContent>
+              
+              <TabsContent value="datasets" className="space-y-4">
+                <section aria-labelledby="datasets-heading">
+                  <h2 id="datasets-heading" className="sr-only">{t.profile.datasets}</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {likedDatasets.length > 0 ? (
-                      likedDatasets.map((dataset) => (
-                        <div key={dataset.id} className="space-y-2">
-                          <DatasetCard
-                            id={dataset.id}
-                            name={dataset.name}
-                            coverImageUrl={dataset.cover_image_url}
-                            type={dataset.type}
-                            downloadCount={dataset.download_count || 0}
-                            viewCount={dataset.view_count || 0}
-                            isPaid={dataset.is_paid || false}
-                            username={dataset.profiles?.username}
-                            displayName={dataset.profiles?.display_name}
-                            avatarUrl={dataset.profiles?.avatar_url}
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-center py-12 text-muted-foreground">
-                        {t.profile.noLikedDatasets}
+                        {datasets.length > 0 ? (
+                          datasets.map((dataset) => (
+                            <div key={dataset.id} className="space-y-2">
+                              <DatasetCard
+                                id={dataset.id}
+                                name={dataset.name}
+                                coverImageUrl={dataset.cover_image_url}
+                                type={dataset.type}
+                                downloadCount={dataset.download_count || 0}
+                                viewCount={dataset.view_count || 0}
+                                isPaid={dataset.is_paid || false}
+                                username={profile?.username}
+                                displayName={profile?.display_name}
+                                avatarUrl={profile?.avatar_url}
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-full text-center py-12 text-muted-foreground">
+                            {t.profile.noDatasets}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-            
-            <TabsContent value="collections" className="space-y-4">
-              <Tabs defaultValue="collected-models" className="w-full">
-                <TabsList className="mb-4">
-                  <TabsTrigger value="collected-models">{t.profile.collectedModels}</TabsTrigger>
-                  <TabsTrigger value="collected-datasets">{t.profile.collectedDatasets}</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="collected-models" className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {collectedModels.length > 0 ? (
-                      collectedModels.map((model) => (
-                        <div key={model.id} className="space-y-2">
-                          <ModelCard
-                            id={model.id}
-                            name={model.name}
-                            coverImageUrl={model.cover_image_url}
-                            type={model.type}
-                            downloadCount={model.download_count || 0}
-                            viewCount={model.view_count || 0}
-                            isPaid={model.is_paid || false}
-                            username={model.profiles?.username}
-                            displayName={model.profiles?.display_name}
-                            avatarUrl={model.profiles?.avatar_url}
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-center py-12 text-muted-foreground">
-                        {t.profile.noCollectedModels}
+                </section>
+              </TabsContent>
+              
+              <TabsContent value="likes" className="space-y-4">
+                <section aria-labelledby="likes-heading">
+                  <h2 id="likes-heading" className="sr-only">{t.profile.likesTab}</h2>
+                  <Tabs defaultValue="liked-models" className="w-full">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="liked-models">{t.profile.likedModels}</TabsTrigger>
+                      <TabsTrigger value="liked-datasets">{t.profile.likedDatasets}</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="liked-models" className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {likedModels.length > 0 ? (
+                          likedModels.map((model) => (
+                            <div key={model.id} className="space-y-2">
+                              <ModelCard
+                                id={model.id}
+                                name={model.name}
+                                coverImageUrl={model.cover_image_url}
+                                type={model.type}
+                                downloadCount={model.download_count || 0}
+                                viewCount={model.view_count || 0}
+                                isPaid={model.is_paid || false}
+                                username={model.profiles?.username}
+                                displayName={model.profiles?.display_name}
+                                avatarUrl={model.profiles?.avatar_url}
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-full text-center py-12 text-muted-foreground">
+                            {t.profile.noLikedModels}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="collected-datasets" className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {collectedDatasets.length > 0 ? (
-                      collectedDatasets.map((dataset) => (
-                        <div key={dataset.id} className="space-y-2">
-                          <DatasetCard
-                            id={dataset.id}
-                            name={dataset.name}
-                            coverImageUrl={dataset.cover_image_url}
-                            type={dataset.type}
-                            downloadCount={dataset.download_count || 0}
-                            viewCount={dataset.view_count || 0}
-                            isPaid={dataset.is_paid || false}
-                            username={dataset.profiles?.username}
-                            displayName={dataset.profiles?.display_name}
-                            avatarUrl={dataset.profiles?.avatar_url}
-                          />
-                        </div>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-center py-12 text-muted-foreground">
-                        {t.profile.noCollectedDatasets}
+                    </TabsContent>
+                    
+                    <TabsContent value="liked-datasets" className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {likedDatasets.length > 0 ? (
+                          likedDatasets.map((dataset) => (
+                            <div key={dataset.id} className="space-y-2">
+                              <DatasetCard
+                                id={dataset.id}
+                                name={dataset.name}
+                                coverImageUrl={dataset.cover_image_url}
+                                type={dataset.type}
+                                downloadCount={dataset.download_count || 0}
+                                viewCount={dataset.view_count || 0}
+                                isPaid={dataset.is_paid || false}
+                                username={dataset.profiles?.username}
+                                displayName={dataset.profiles?.display_name}
+                                avatarUrl={dataset.profiles?.avatar_url}
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-full text-center py-12 text-muted-foreground">
+                            {t.profile.noLikedDatasets}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-          </Tabs>
+                    </TabsContent>
+                  </Tabs>
+                </section>
+              </TabsContent>
+              
+              <TabsContent value="collections" className="space-y-4">
+                <section aria-labelledby="collections-heading">
+                  <h2 id="collections-heading" className="sr-only">{t.profile.collections}</h2>
+                  <Tabs defaultValue="collected-models" className="w-full">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="collected-models">{t.profile.collectedModels}</TabsTrigger>
+                      <TabsTrigger value="collected-datasets">{t.profile.collectedDatasets}</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="collected-models" className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {collectedModels.length > 0 ? (
+                          collectedModels.map((model) => (
+                            <div key={model.id} className="space-y-2">
+                              <ModelCard
+                                id={model.id}
+                                name={model.name}
+                                coverImageUrl={model.cover_image_url}
+                                type={model.type}
+                                downloadCount={model.download_count || 0}
+                                viewCount={model.view_count || 0}
+                                isPaid={model.is_paid || false}
+                                username={model.profiles?.username}
+                                displayName={model.profiles?.display_name}
+                                avatarUrl={model.profiles?.avatar_url}
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-full text-center py-12 text-muted-foreground">
+                            {t.profile.noCollectedModels}
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="collected-datasets" className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                        {collectedDatasets.length > 0 ? (
+                          collectedDatasets.map((dataset) => (
+                            <div key={dataset.id} className="space-y-2">
+                              <DatasetCard
+                                id={dataset.id}
+                                name={dataset.name}
+                                coverImageUrl={dataset.cover_image_url}
+                                type={dataset.type}
+                                downloadCount={dataset.download_count || 0}
+                                viewCount={dataset.view_count || 0}
+                                isPaid={dataset.is_paid || false}
+                                username={dataset.profiles?.username}
+                                displayName={dataset.profiles?.display_name}
+                                avatarUrl={dataset.profiles?.avatar_url}
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <div className="col-span-full text-center py-12 text-muted-foreground">
+                            {t.profile.noCollectedDatasets}
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </section>
+              </TabsContent>
+            </Tabs>
+          </main>
         </div>
 
         {/* 编辑资料弹窗 */}

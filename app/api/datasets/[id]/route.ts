@@ -45,15 +45,16 @@ export async function GET(
     
     // 获取作者的其他数据集
     if (includeAuthorDatasets) {
-      const { data: authorDatasets } = await supabase
+      console.log('Fetching author datasets for user_id:', dataset.user_id)
+      const { data: authorDatasets, error } = await supabase
         .from('datasets')
-        .select('id, name, description, cover_image_url, type, view_count, like_count, is_paid, price')
+        .select('id, name, description, cover_image_url, type, view_count, like_count, is_paid, price, status')
         .eq('user_id', dataset.user_id)
         .neq('id', id) // 排除当前数据集
-        .eq('status', 'published')
         .order('created_at', { ascending: false })
         .limit(6) // 限制为6个
       
+      console.log('Author datasets query result:', { data: authorDatasets, error })
       result.authorDatasets = authorDatasets || []
     }
     

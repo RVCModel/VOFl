@@ -6,10 +6,10 @@ const supabase = createServiceClient()
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     
     // 获取请求体
     const body = await request.json()
@@ -40,8 +40,8 @@ export async function POST(
       
       // 调用RPC函数处理付费数据集下载
       const { data, error } = await supabase.rpc('process_dataset_download', {
-        dataset_uuid: id,
-        user_uuid: userId
+        p_dataset_id: id,
+        p_user_id: userId
       })
       
       if (error) {
@@ -62,7 +62,7 @@ export async function POST(
       if (userId) {
         // 如果用户已登录，增加下载计数
         const { error: incrementError } = await supabase.rpc('increment_dataset_download_count', {
-          dataset_uuid: id
+          p_dataset_id: id
         })
         
         if (incrementError) {

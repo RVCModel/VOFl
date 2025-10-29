@@ -13,10 +13,12 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "VOFL - 语音合成模型平台",
+  title: "VOFL.AI - 语音合成模型网",
   description: "专业的VOFL模型和数据集分享平台,致力于gpt-sovits模型分享以及数据集分享。",
   keywords: ["gpt-sovits", "模型", "语音模型", "免费下载", "二次元", "ACG", "AI", "炼丹", "人工智能", "深度学习", "语音转换", "tts"],
- 
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({
