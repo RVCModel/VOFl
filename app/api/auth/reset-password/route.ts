@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 获取当前请求的域名
-    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
     
     // 使用Supabase发送密码重置邮件
     const { error } = await supabase.auth.resetPasswordForEmail(email, {

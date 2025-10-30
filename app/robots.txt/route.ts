@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 export function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://vofl.ai'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://vofl.ai'
   
   const robotsTxt = `User-agent: *
 Allow: /
