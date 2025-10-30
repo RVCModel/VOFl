@@ -56,7 +56,7 @@ export const DatasetCard: React.FC<DatasetCardProps> = ({
 
   const getTypeLabel = (type: string) => {
     const types: Record<string, string> = {
-      'voice': '语音',
+      'voice': 'Dataset',
       'text': '文本',
       'image': '图像',
       'other': '其他'

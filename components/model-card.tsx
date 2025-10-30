@@ -52,7 +52,7 @@ export const ModelCard: React.FC<ModelCardProps> = ({
         {/* 左上角：类型标签 */}
         <div className="absolute top-2 left-2">
           <Badge variant="secondary" className="bg-black/50 text-white hover:bg-black/60 backdrop-blur-sm text-xs">
-            {type === 'gpt-sovits' ? 'VOFL' : (type ? type.toUpperCase() : 'MODEL')}
+            {type === 'gpt-sovits' ? 'GSV' : (type ? type.toUpperCase() : 'MODEL')}
           </Badge>
         </div>
         
