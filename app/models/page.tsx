@@ -11,6 +11,8 @@ import {
   Search, 
   Filter
 } from 'lucide-react'
+import { useLocale } from '@/components/locale-provider'
+import { translations } from '@/lib/i18n'
 
 interface Model {
   id: string
@@ -35,6 +37,8 @@ interface Model {
 }
 
 export default function ModelsPage() {
+  const { locale } = useLocale()
+  const t = translations[locale]
   const [models, setModels] = useState<Model[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -43,8 +47,8 @@ export default function ModelsPage() {
 
   // 设置页面标题
   useEffect(() => {
-    document.title = 'TTS模型 - VOFL语音合成模型平台'
-  }, [])
+    document.title = t.models?.pageTitle || 'TTS模型 - VOFL语音合成模型平台'
+  }, [t.models?.pageTitle])
 
   useEffect(() => {
     fetchModels()
@@ -77,8 +81,8 @@ export default function ModelsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">TTS 模型</h1>
-        <p className="mt-2 text-muted-foreground">浏览和下载各种语音合成模型</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t.models?.title || "TTS 模型"}</h1>
+        <p className="mt-2 text-muted-foreground">{t.models?.description || "浏览和下载各种语音合成模型"}</p>
       </div>
 
       {/* 搜索和过滤器 */}
@@ -86,7 +90,7 @@ export default function ModelsPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="搜索模型名称或描述..."
+            placeholder={t.models?.searchPlaceholder || "搜索模型名称或描述..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -95,25 +99,25 @@ export default function ModelsPage() {
         <div className="flex gap-2">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="分类" />
+              <SelectValue placeholder={t.models?.categoryFilter || "分类"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部分类</SelectItem>
-              <SelectItem value="ip_anime">动漫IP</SelectItem>
-              <SelectItem value="explanation">解说类</SelectItem>
-              <SelectItem value="character">角色音色</SelectItem>
-              <SelectItem value="game">游戏音色</SelectItem>
+              <SelectItem value="all">{t.models?.allCategories || "全部分类"}</SelectItem>
+              <SelectItem value="ip_anime">{t.categories?.ipAnime || "动漫IP"}</SelectItem>
+              <SelectItem value="explanation">{t.categories?.explanation || "解说类"}</SelectItem>
+              <SelectItem value="character">{t.categories?.character || "角色音色"}</SelectItem>
+              <SelectItem value="game">{t.categories?.game || "游戏音色"}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="排序" />
+              <SelectValue placeholder={t.models?.sortBy || "排序"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="newest">最新</SelectItem>
-              <SelectItem value="popular">热门</SelectItem>
-              <SelectItem value="views">浏览</SelectItem>
-              <SelectItem value="name">名称</SelectItem>
+              <SelectItem value="newest">{t.models?.newest || "最新"}</SelectItem>
+              <SelectItem value="popular">{t.models?.popular || "热门"}</SelectItem>
+              <SelectItem value="views">{t.models?.views || "浏览"}</SelectItem>
+              <SelectItem value="name">{t.models?.name || "名称"}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -126,7 +130,7 @@ export default function ModelsPage() {
         </div>
       ) : models.length === 0 ? (
         <div className="rounded-lg border border-border bg-card p-8 text-center">
-          <p className="text-muted-foreground">没有找到匹配的模型</p>
+          <p className="text-muted-foreground">{t.models?.noModelsFound || "没有找到匹配的模型"}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">

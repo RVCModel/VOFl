@@ -10,7 +10,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { Bell, Heart, MessageSquare, UserPlus, Settings, Check } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { zhCN } from 'date-fns/locale'
+import { zhCN, enUS } from 'date-fns/locale'
+import { useLocale } from '@/components/locale-provider'
+import { translations } from '@/lib/i18n'
 
 interface Message {
   id: string
@@ -42,6 +44,8 @@ interface MessagesResponse {
 
 export default function MessagesPage() {
   const { user, session } = useAuth()
+  const { locale } = useLocale()
+  const t = translations[locale]
   const [messages, setMessages] = useState<Message[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [activeTab, setActiveTab] = useState('all')
@@ -69,7 +73,7 @@ export default function MessagesPage() {
       })
 
       if (!response.ok) {
-        throw new Error('获取消息失败')
+        throw new Error(t.messages.errors.fetch)
       }
 
       const data: MessagesResponse = await response.json()
@@ -105,7 +109,7 @@ export default function MessagesPage() {
       })
 
       if (!response.ok) {
-        throw new Error('标记消息失败')
+        throw new Error(t.messages.errors.mark)
       }
 
       // 标记成功后，重新获取消息列表以更新UI
@@ -157,25 +161,26 @@ export default function MessagesPage() {
   const getMessageTypeName = (type: string) => {
     switch (type) {
       case 'system':
-        return '系统消息'
+        return t.messages.typeNames.system
       case 'activity':
-        return '活动消息'
+        return t.messages.typeNames.activity
       case 'reply':
-        return '回复我的'
+        return t.messages.typeNames.reply
       case 'like':
-        return '收到的赞'
+        return t.messages.typeNames.like
       case 'follow':
-        return '收到的关注'
+        return t.messages.typeNames.follow
       default:
-        return '未知类型'
+        return t.messages.typeNames.unknown
     }
   }
 
   // 格式化时间
   const formatTime = (dateString: string) => {
+    const dateLocale = locale === 'zh' ? zhCN : enUS
     return formatDistanceToNow(new Date(dateString), { 
       addSuffix: true, 
-      locale: zhCN 
+      locale: dateLocale 
     })
   }
 
@@ -195,7 +200,7 @@ export default function MessagesPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-8">
-              <p>请先登录以查看消息</p>
+              <p>{t.messages.pleaseLogin}</p>
             </div>
           </CardContent>
         </Card>
@@ -208,7 +213,7 @@ export default function MessagesPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-xl">消息中心</CardTitle>
+            <CardTitle className="text-xl">{t.messages.title}</CardTitle>
             {unreadCount > 0 && (
               <Button 
                 variant="outline" 
@@ -216,7 +221,7 @@ export default function MessagesPage() {
                 onClick={markAllAsRead}
                 disabled={markingAllRead}
               >
-                {markingAllRead ? '标记中...' : '全部标记为已读'}
+                {markingAllRead ? t.messages.marking : t.messages.markAllAsRead}
               </Button>
             )}
           </div>
@@ -225,7 +230,7 @@ export default function MessagesPage() {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="all" className="relative">
-                全部
+                {t.messages.types.all}
                 {unreadCount > 0 && (
                   <Badge variant="destructive" className="ml-1 h-5 w-5 rounded-full p-0 text-xs">
                     {unreadCount > 99 ? '99+' : unreadCount}
@@ -235,31 +240,31 @@ export default function MessagesPage() {
               <TabsTrigger value="system">
                 <div className="flex items-center gap-1">
                   <Settings className="h-4 w-4" />
-                  <span className="hidden sm:inline">系统</span>
+                  <span className="hidden sm:inline">{t.messages.types.system}</span>
                 </div>
               </TabsTrigger>
               <TabsTrigger value="activity">
                 <div className="flex items-center gap-1">
                   <Bell className="h-4 w-4" />
-                  <span className="hidden sm:inline">活动</span>
+                  <span className="hidden sm:inline">{t.messages.types.activity}</span>
                 </div>
               </TabsTrigger>
               <TabsTrigger value="reply">
                 <div className="flex items-center gap-1">
                   <MessageSquare className="h-4 w-4" />
-                  <span className="hidden sm:inline">回复</span>
+                  <span className="hidden sm:inline">{t.messages.types.reply}</span>
                 </div>
               </TabsTrigger>
               <TabsTrigger value="like">
                 <div className="flex items-center gap-1">
                   <Heart className="h-4 w-4" />
-                  <span className="hidden sm:inline">赞</span>
+                  <span className="hidden sm:inline">{t.messages.types.like}</span>
                 </div>
               </TabsTrigger>
               <TabsTrigger value="follow">
                 <div className="flex items-center gap-1">
                   <UserPlus className="h-4 w-4" />
-                  <span className="hidden sm:inline">关注</span>
+                  <span className="hidden sm:inline">{t.messages.types.follow}</span>
                 </div>
               </TabsTrigger>
             </TabsList>
@@ -267,11 +272,11 @@ export default function MessagesPage() {
             <TabsContent value={activeTab} className="mt-6">
               {loading ? (
                 <div className="text-center py-8">
-                  <p>加载中...</p>
+                  <p>{t.messages.loading}</p>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center py-8">
-                  <p>暂无{activeTab !== 'all' ? getMessageTypeName(activeTab) : ''}消息</p>
+                  <p>{t.messages.empty}{activeTab !== 'all' ? getMessageTypeName(activeTab) : ''}</p>
                 </div>
               ) : (
                 <div className="space-y-4">

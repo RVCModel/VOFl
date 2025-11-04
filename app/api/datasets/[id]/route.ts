@@ -168,6 +168,25 @@ export async function PUT(
       )
     }
     
+    // 如果状态更改为published，触发sitemap刷新
+    if (body.status === 'published' && dataset.status !== 'published') {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/sitemap/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'dataset',
+            id: id
+          })
+        })
+      } catch (refreshError) {
+        console.error('Failed to trigger sitemap refresh:', refreshError)
+        // 不影响主要功能，只记录错误
+      }
+    }
+    
     return NextResponse.json(updatedDataset)
   } catch (error) {
     console.error('Error in dataset API:', error)

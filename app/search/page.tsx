@@ -197,6 +197,14 @@ function SearchResults() {
 
 // 带有Suspense的搜索页面组件
 export default function SearchPage() {
+  const { locale } = useLocale()
+  const t = translations[locale]
+  
+  // 设置页面标题
+  useEffect(() => {
+    document.title = t.search?.pageTitle || '搜索 - VOFL语音合成模型平台'
+  }, [t.search?.pageTitle])
+  
   return (
     <Suspense fallback={
       <div className="container mx-auto px-4 py-8">

@@ -93,7 +93,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/xml',
-        'Cache-Control': 'public, max-age=3600, s-maxage=86400', // 缓存1小时，CDN缓存1天
+        'Cache-Control': 'public, max-age=300, s-maxage=1800', // 缓存5分钟，CDN缓存30分钟
       },
     })
   } catch (error) {

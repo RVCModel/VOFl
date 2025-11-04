@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useLocale } from '@/components/locale-provider'
+import { translations } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -70,6 +72,8 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useAuth()
+  const { locale } = useLocale()
+  const t = translations[locale]
   const id = params.id as string
   
   const [dataset, setDataset] = useState<Dataset | null>(initialDataset)
@@ -190,8 +194,8 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
   const handleLike = async () => {
     if (!user) {
       toast({
-        title: '请先登录',
-        description: '点赞功能需要登录后使用',
+        title: t.datasetDetail.loginRequired,
+        description: t.datasetDetail.likeLoginRequired,
         variant: 'destructive'
       })
       return
@@ -218,14 +222,14 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
       setLikeCount(data.likeCount)
       
       toast({
-        title: data.isLiked ? '点赞成功' : '已取消点赞',
-        description: data.isLiked ? '感谢您的点赞！' : '您已取消对该数据集的点赞'
+        title: data.isLiked ? t.datasetDetail.likeSuccess : t.datasetDetail.unlikeSuccess,
+        description: data.isLiked ? t.datasetDetail.likeThanks : t.datasetDetail.unlikeDescription
       })
     } catch (error) {
       console.error('Error updating like status:', error)
       toast({
-        title: '操作失败',
-        description: '点赞操作失败，请稍后再试',
+        title: t.datasetDetail.operationFailed,
+        description: t.datasetDetail.likeOperationFailed,
         variant: 'destructive'
       })
     }
@@ -235,8 +239,8 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
   const handleCollection = async () => {
     if (!user) {
       toast({
-        title: '请先登录',
-        description: '收藏功能需要登录后使用',
+        title: t.datasetDetail.loginRequired,
+        description: t.datasetDetail.collectionLoginRequired,
         variant: 'destructive'
       })
       return
@@ -263,14 +267,14 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
       setCollectionCount(data.collectionCount)
       
       toast({
-        title: data.isCollected ? '收藏成功' : '已取消收藏',
-        description: data.isCollected ? '数据集已添加到您的收藏夹' : '您已取消对该数据集的收藏'
+        title: data.isCollected ? t.datasetDetail.collectSuccess : t.datasetDetail.uncollectSuccess,
+        description: data.isCollected ? t.datasetDetail.collectionAdded : t.datasetDetail.uncollectionDescription
       })
     } catch (error) {
       console.error('Error updating collection status:', error)
       toast({
-        title: '操作失败',
-        description: '收藏操作失败，请稍后再试',
+        title: t.datasetDetail.operationFailed,
+        description: t.datasetDetail.collectionOperationFailed,
         variant: 'destructive'
       })
     }
@@ -280,8 +284,8 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
   const handleFollowAuthor = async () => {
     if (!user) {
       toast({
-        title: '请先登录',
-        description: '关注功能需要登录后使用',
+        title: t.datasetDetail.loginRequired,
+        description: t.datasetDetail.followLoginRequired,
         variant: 'destructive'
       })
       return
@@ -309,14 +313,14 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
       setIsFollowing(data.following)
       
       toast({
-        title: isFollowing ? '已取消关注' : '关注成功',
-        description: isFollowing ? `您已取消关注${dataset.profiles?.display_name || dataset.profiles?.username}` : `您已关注${dataset.profiles?.display_name || dataset.profiles?.username}`
+        title: isFollowing ? t.datasetDetail.unfollowSuccess : t.datasetDetail.followSuccess,
+        description: isFollowing ? t.datasetDetail.unfollowDescription.replace('{author}', dataset.profiles?.display_name || dataset.profiles?.username) : t.datasetDetail.followDescription.replace('{author}', dataset.profiles?.display_name || dataset.profiles?.username)
       })
     } catch (error) {
       console.error('Error updating follow status:', error)
       toast({
-        title: '操作失败',
-        description: '关注操作失败，请稍后再试',
+        title: t.datasetDetail.operationFailed,
+        description: t.datasetDetail.followOperationFailed,
         variant: 'destructive'
       })
     }
@@ -326,8 +330,8 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
   const handleDownload = async () => {
     if (!user) {
       toast({
-        title: '请先登录',
-        description: '下载功能需要登录后使用',
+        title: t.datasetDetail.loginRequired,
+        description: t.datasetDetail.downloadLoginRequired,
         variant: 'destructive'
       })
       return
@@ -365,8 +369,8 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
         document.body.removeChild(link)
         
         toast({
-          title: '下载成功',
-          description: '数据集下载已开始'
+          title: t.datasetDetail.downloadSuccess,
+          description: t.datasetDetail.downloadStarted
         })
       } else {
         throw new Error(data.message || 'Download failed')
@@ -374,8 +378,8 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
     } catch (error) {
       console.error('Error downloading dataset:', error)
       toast({
-        title: '下载失败',
-        description: '下载操作失败，请稍后再试',
+        title: t.datasetDetail.downloadFailed,
+        description: t.datasetDetail.downloadOperationFailed,
         variant: 'destructive'
       })
     } finally {
@@ -383,17 +387,28 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
     }
   }
 
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: dataset?.name,
-        text: dataset?.description,
-        url: window.location.href,
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: dataset?.name,
+          text: dataset?.description,
+          url: window.location.href,
+        })
+      } else {
+        await navigator.clipboard.writeText(window.location.href)
+        toast({
+          title: t.datasetDetail.linkCopied,
+          description: t.datasetDetail.linkCopiedDescription
+        })
+      }
+    } catch (error) {
+      console.error('Error sharing:', error)
+      toast({
+        title: t.datasetDetail.shareFailed,
+        description: t.datasetDetail.shareFailedDescription,
+        variant: 'destructive'
       })
-    } else {
-      // 复制链接到剪贴板
-      navigator.clipboard.writeText(window.location.href)
-      // 这里可以添加一个toast提示
     }
   }
 
@@ -431,21 +446,21 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
 
   const getCategoryLabel = (category: string) => {
     const categories: Record<string, string> = {
-      'ip_anime': '动漫IP',
-      'explanation': '解说类',
-      'character': '角色音色',
-      'game': '游戏音色',
-      'other': '其他'
+      'ip_anime': t.datasetDetail.ipAnime,
+      'explanation': t.datasetDetail.explanation,
+      'character': t.datasetDetail.character,
+      'game': t.datasetDetail.game,
+      'other': t.datasetDetail.other
     }
     return categories[category] || category
   }
 
   const getTypeLabel = (type: string) => {
     const types: Record<string, string> = {
-      'voice': '语音',
-      'text': '文本',
-      'image': '图像',
-      'other': '其他'
+      'voice': t.datasetDetail.voice,
+      'text': t.datasetDetail.text,
+      'image': t.datasetDetail.image,
+      'other': t.datasetDetail.other
     }
     return types[type] || type
   }
@@ -534,14 +549,14 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
         <div className="mb-4">
           <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
         </div>
-        <h2 className="text-2xl font-bold mb-2">获取数据集失败</h2>
+        <h2 className="text-2xl font-bold mb-2">{t.datasetDetail.fetchFailed}</h2>
         <p className="text-muted-foreground mb-4">{error}</p>
         <div className="flex justify-center gap-2">
           <Button onClick={() => window.location.reload()}>
-            重试
+            {t.datasetDetail.retry}
           </Button>
           <Button variant="outline" onClick={() => router.push('/datasets')}>
-            返回数据集列表
+            {t.datasetDetail.backToDatasets}
           </Button>
         </div>
       </div>
@@ -551,10 +566,10 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
   if (!dataset) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-bold mb-2">数据集不存在</h2>
-        <p className="text-muted-foreground mb-4">您查找的数据集可能已被删除或不存在</p>
+        <h2 className="text-2xl font-bold mb-2">{t.datasetDetail.notFound}</h2>
+        <p className="text-muted-foreground mb-4">{t.datasetDetail.notFoundDescription}</p>
         <Button onClick={() => router.push('/datasets')}>
-          返回数据集列表
+          {t.datasetDetail.backToDatasets}
         </Button>
       </div>
     )
@@ -579,7 +594,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
         className="mb-6"
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
-        返回
+        {t.datasetDetail.back}
       </Button>
 
       {/* 数据集头部信息 */}
@@ -635,15 +650,15 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
           <div className="flex items-center flex-wrap gap-6 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Eye className="h-4 w-4" />
-              {dataset.view_count || 0} 浏览
+              {dataset.view_count || 0} {t.datasetDetail.views}
             </div>
             <div className="flex items-center gap-1.5">
               <Download className="h-4 w-4" />
-              {downloadCount} 下载
+              {downloadCount} {t.datasetDetail.downloads}
             </div>
             <div className="flex items-center gap-1.5">
               <Heart className="h-4 w-4" />
-              {likeCount} 点赞
+              {likeCount} {t.datasetDetail.likes}
             </div>
             <div className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
@@ -659,7 +674,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
               className="rounded-full px-6 py-2.5 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
             >
               <Download className="mr-2 h-4 w-4" />
-              {isDownloading ? '处理中...' : (dataset.is_paid ? '购买' : '下载')}
+              {isDownloading ? t.datasetDetail.processing : (dataset.is_paid ? t.datasetDetail.purchaseAndDownload : t.datasetDetail.download)}
               {dataset.file_type && !isDownloading && dataset.file_type !== 'unknown' && (
                 <span className="ml-2 text-xs opacity-90">{dataset.file_type.toUpperCase()}</span>
               )}
@@ -670,7 +685,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
               className={`rounded-full px-5 py-2.5 border border-gray-200 transition-all duration-300 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 ${isLiked ? 'text-red-500 border-red-200 hover:bg-red-50' : ''}`}
             >
               <Heart className={`mr-2 h-4 w-4 ${isLiked ? 'fill-red-500 text-red-500' : ''}`} />
-              {isLiked ? '已点赞' : '点赞'}
+              {isLiked ? t.datasetDetail.liked : t.datasetDetail.like}
             </Button>
             <Button 
               variant="outline" 
@@ -678,7 +693,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
               className={`rounded-full px-5 py-2.5 border border-gray-200 transition-all duration-300 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 ${isCollected ? 'text-blue-500 border-blue-200 hover:bg-blue-50' : ''}`}
             >
               <Bookmark className={`mr-2 h-4 w-4 ${isCollected ? 'fill-blue-500 text-blue-500' : ''}`} />
-              {isCollected ? '已收藏' : '收藏'}
+              {isCollected ? t.datasetDetail.collected : t.datasetDetail.collect}
             </Button>
             <Button 
               variant="outline" 
@@ -686,7 +701,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
               className="rounded-full px-5 py-2.5 border border-gray-200 transition-all duration-300 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
             >
               <Share2 className="mr-2 h-4 w-4" />
-              分享
+              {t.datasetDetail.share}
             </Button>
           </div>
         </div>
@@ -702,19 +717,19 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
               value="details" 
               className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-300"
             >
-              详细信息
+              {t.datasetDetail.tabs.details}
             </TabsTrigger>
             <TabsTrigger 
               value="preview" 
               className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-300"
             >
-              预览
+              {t.datasetDetail.tabs.preview}
             </TabsTrigger>
             <TabsTrigger 
               value="author" 
               className="rounded-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm transition-all duration-300"
             >
-              作者信息
+              {t.datasetDetail.tabs.author}
             </TabsTrigger>
           </TabsList>
 
@@ -723,9 +738,9 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
             <CardHeader className="bg-background/50 border-b border-input/20">
               <div className="flex justify-between items-center w-full">
                 <div>
-                  <CardTitle>数据集详情</CardTitle>
+                  <CardTitle>{t.datasetDetail.datasetDetails}</CardTitle>
                   <CardDescription>
-                    查看数据集的详细信息和属性
+                    {t.datasetDetail.viewDatasetDetails}
                   </CardDescription>
                 </div>
               </div>
@@ -738,7 +753,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                     <Tag className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground">类型</div>
+                    <div className="text-xs text-muted-foreground">{t.datasetDetail.type}</div>
                     <div className="font-medium">{getTypeLabel(dataset.type)}</div>
                   </div>
                 </div>
@@ -748,7 +763,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                     <Tag className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground">分类</div>
+                    <div className="text-xs text-muted-foreground">{t.datasetDetail.category}</div>
                     <div className="font-medium">{getCategoryLabel(dataset.content_category)}</div>
                   </div>
                 </div>
@@ -758,7 +773,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                     <HardDrive className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground">文件大小</div>
+                    <div className="text-xs text-muted-foreground">{t.datasetDetail.fileSize}</div>
                     <div className="font-medium">{formatFileSize(dataset.file_size)}</div>
                   </div>
                 </div>
@@ -768,8 +783,8 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                     <FileText className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground">文件类型</div>
-                    <div className="font-medium">{dataset.file_type || '未知'}</div>
+                    <div className="text-xs text-muted-foreground">{t.datasetDetail.fileType}</div>
+                    <div className="font-medium">{dataset.file_type || t.datasetDetail.unknown}</div>
                   </div>
                 </div>
                 
@@ -778,7 +793,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                     <Calendar className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground">创建时间</div>
+                    <div className="text-xs text-muted-foreground">{t.datasetDetail.createdAt}</div>
                     <div className="font-medium">{formatDate(dataset.created_at)}</div>
                   </div>
                 </div>
@@ -788,7 +803,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                     <Clock className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="text-xs text-muted-foreground">更新时间</div>
+                    <div className="text-xs text-muted-foreground">{t.datasetDetail.updatedAt}</div>
                     <div className="font-medium">{formatDate(dataset.updated_at)}</div>
                   </div>
                 </div>
@@ -796,7 +811,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
 
               {dataset.description && (
                 <div>
-                  <h4 className="font-medium mb-2">描述</h4>
+                  <h4 className="font-medium mb-2">{t.datasetDetail.description}</h4>
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                     {dataset.description}
                   </p>
@@ -805,7 +820,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
 
               {dataset.tags && dataset.tags.length > 0 && (
                 <div>
-                  <h4 className="font-medium mb-2">标签</h4>
+                  <h4 className="font-medium mb-2">{t.datasetDetail.tags}</h4>
                   <div className="flex flex-wrap gap-2">
                     {dataset.tags.map((tag, index) => (
                       <Badge key={index} variant="secondary">
@@ -824,14 +839,14 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
             <CardHeader className="bg-background/50 border-b border-input/20">
               <div className="flex justify-between items-center w-full">
                 <div>
-                  <CardTitle>数据集预览</CardTitle>
+                  <CardTitle>{t.datasetDetail.datasetPreview}</CardTitle>
                   <CardDescription>
-                    预览数据集中的部分内容
+                    {t.datasetDetail.previewDescription}
                   </CardDescription>
                 </div>
                 {dataset.type === 'voice' && (
                   <Button variant="ghost" size="sm" className="text-sm text-primary hover:text-primary/80">
-                    试听更多片段
+                    {t.datasetDetail.listenMore}
                   </Button>
                 )}
               </div>
@@ -860,7 +875,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                         </Button>
                         <div className="flex items-center gap-2">
                           <Volume2 className="h-4 w-4 text-muted-foreground" />
-                          <span>音频预览</span>
+                          <span>{t.datasetDetail.audioPreview}</span>
                         </div>
                       </div>
                       {/* 音频播放器 - 带样式 */}
@@ -902,17 +917,17 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                       
                       <Button variant="secondary" size="sm" className="rounded-full">
                         <Download className="mr-2 h-4 w-4" />
-                        下载样本
+                        {t.datasetDetail.downloadSample}
                       </Button>
                     </>
                   ) : (
                     <div className="text-center py-10">
                       <Volume2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-60" />
-                      <p className="text-base text-muted-foreground mb-2">此数据集暂无音频预览</p>
-                      <p className="text-sm text-muted-foreground">请下载数据集后查看完整内容</p>
+                      <p className="text-base text-muted-foreground mb-2">{t.datasetDetail.noAudioPreview}</p>
+                      <p className="text-sm text-muted-foreground">{t.datasetDetail.downloadToView}</p>
                       <Button variant="outline" className="mt-4 rounded-full">
                         <Download className="mr-2 h-4 w-4" />
-                        下载数据集
+                        {t.datasetDetail.download}
                       </Button>
                     </div>
                   )}
@@ -920,7 +935,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
               ) : (
                 <div className="text-center py-10 text-muted-foreground">
                   <FileText className="h-16 w-16 mx-auto mb-4 opacity-60" />
-                  <p className="text-base">此数据集类型不支持预览</p>
+                  <p className="text-base">{t.datasetDetail.noPreviewSupport}</p>
                 </div>
               )}
             </CardContent>
@@ -932,9 +947,9 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
               <CardHeader className="bg-background/50 border-b border-input/20">
                 <div className="flex justify-between items-center w-full">
                   <div>
-                    <CardTitle>作者信息</CardTitle>
+                    <CardTitle>{t.datasetDetail.authorInfo}</CardTitle>
                     <CardDescription>
-                      了解数据集作者及其其他作品
+                      {t.datasetDetail.authorDescription}
                     </CardDescription>
                   </div>
                 </div>
@@ -950,22 +965,22 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-bold font-sans">{dataset.profiles?.display_name || dataset.profiles?.username || '未知用户'}</h3>
+                      <h3 className="text-xl font-bold font-sans">{dataset.profiles?.display_name || dataset.profiles?.username || t.datasetDetail.unknownUser}</h3>
                       <Button 
                         variant="default" 
                         size="sm" 
                         className="rounded-full bg-primary hover:bg-primary/90"
                         onClick={handleFollowAuthor}
                       >
-                        {isFollowing ? '已关注' : '关注'}
+                        {isFollowing ? t.datasetDetail.following : t.datasetDetail.follow}
                       </Button>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
-                      {dataset.is_original ? '原创作者' : `转载自: ${dataset.original_author || '未知'}`}
+                      {dataset.is_original ? t.datasetDetail.originalAuthor : `${t.datasetDetail.repostedFrom}: ${dataset.original_author || t.datasetDetail.unknown}`}
                     </p>
                     {/* 作者简介 - 模拟数据 */}
                     <p className="text-sm text-foreground">
-                      {dataset.profiles?.display_name || dataset.profiles?.username ? `${dataset.profiles?.display_name || dataset.profiles?.username} 是一位专注于AI数据创作的内容创作者，致力于提供高质量的数据集资源。` : '这位用户还没有设置个人简介。'}
+                      {dataset.profiles?.display_name || dataset.profiles?.username ? `${dataset.profiles?.display_name || dataset.profiles?.username} ${t.datasetDetail.authorBio}` : t.datasetDetail.noAuthorBio}
                     </p>
                   </div>
                 </div>
@@ -974,7 +989,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                 <div className="mt-8">
                   <h4 className="font-medium text-base mb-4 flex items-center">
                     <User className="mr-2 h-4 w-4" />
-                    更多来自此作者的数据集
+                    {t.datasetDetail.moreFromAuthor}
                   </h4>
                   {authorDatasets.length > 0 ? (
                     <>
@@ -999,7 +1014,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                               <CardContent className="p-4">
                                 <h5 className="font-medium text-sm line-clamp-1">{authorDataset.name}</h5>
                                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                  {authorDataset.description || '这个数据集暂无描述'}
+                                  {authorDataset.description || t.datasetDetail.noDatasetDescription}
                                 </p>
                                 <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                                   <div className="flex items-center gap-1">
@@ -1023,14 +1038,14 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                       </div>
                       <Link href={`/profile/${dataset.user_id}`}>
                         <Button variant="ghost" className="w-full mt-4 text-primary hover:text-primary/80">
-                          查看全部
+                          {t.datasetDetail.viewAll}
                         </Button>
                       </Link>
                     </>
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <FileText className="h-12 w-12 mx-auto mb-3 opacity-60" />
-                      <p className="text-sm">该作者暂无其他数据集</p>
+                      <p className="text-sm">{t.datasetDetail.noOtherDatasets}</p>
                     </div>
                   )}
                 </div>

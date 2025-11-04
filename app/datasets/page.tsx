@@ -10,6 +10,8 @@ import {
   Search, 
   Filter
 } from 'lucide-react'
+import { useLocale } from '@/components/locale-provider'
+import { translations } from '@/lib/i18n'
 
 interface Dataset {
   id: string
@@ -36,6 +38,8 @@ interface Dataset {
 }
 
 export default function DatasetsPage() {
+  const { locale } = useLocale()
+  const t = translations[locale]
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -45,8 +49,8 @@ export default function DatasetsPage() {
 
   // 设置页面标题
   useEffect(() => {
-    document.title = '数据集 - VOFL语音合成模型平台'
-  }, [])
+    document.title = t.datasets?.pageTitle || '数据集 - VOFL语音合成模型平台'
+  }, [t.datasets?.pageTitle])
 
   useEffect(() => {
     fetchDatasets()
@@ -101,8 +105,8 @@ export default function DatasetsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">数据集</h1>
-        <p className="mt-2 text-muted-foreground">获取高质量的语音训练数据集</p>
+        <h1 className="text-3xl font-bold tracking-tight">{t.datasets?.title || "数据集"}</h1>
+        <p className="mt-2 text-muted-foreground">{t.datasets?.description || "获取高质量的语音训练数据集"}</p>
       </div>
 
       {/* 搜索和过滤器 */}
@@ -110,7 +114,7 @@ export default function DatasetsPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
-            placeholder="搜索数据集名称或描述..."
+            placeholder={t.datasets?.searchPlaceholder || "搜索数据集名称或描述..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -119,39 +123,39 @@ export default function DatasetsPage() {
         <div className="flex gap-2">
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="分类" />
+              <SelectValue placeholder={t.datasets?.categoryFilter || "分类"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部分类</SelectItem>
-              <SelectItem value="ip_anime">动漫IP</SelectItem>
-              <SelectItem value="explanation">解说类</SelectItem>
-              <SelectItem value="character">角色音色</SelectItem>
-              <SelectItem value="game">游戏音色</SelectItem>
-              <SelectItem value="other">其他</SelectItem>
+              <SelectItem value="all">{t.datasets?.allCategories || "全部分类"}</SelectItem>
+              <SelectItem value="ip_anime">{t.categories?.ipAnime || "动漫IP"}</SelectItem>
+              <SelectItem value="explanation">{t.categories?.explanation || "解说类"}</SelectItem>
+              <SelectItem value="character">{t.categories?.character || "角色音色"}</SelectItem>
+              <SelectItem value="game">{t.categories?.game || "游戏音色"}</SelectItem>
+              <SelectItem value="other">{t.categories?.other || "其他"}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="类型" />
+              <SelectValue placeholder={t.datasets?.typeFilter || "类型"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部类型</SelectItem>
-              <SelectItem value="voice">语音</SelectItem>
-              <SelectItem value="text">文本</SelectItem>
-              <SelectItem value="image">图像</SelectItem>
-              <SelectItem value="other">其他</SelectItem>
+              <SelectItem value="all">{t.datasets?.allTypes || "全部类型"}</SelectItem>
+              <SelectItem value="voice">{t.datasets?.voiceType || "语音"}</SelectItem>
+              <SelectItem value="text">{t.datasets?.textType || "文本"}</SelectItem>
+              <SelectItem value="image">{t.datasets?.imageType || "图像"}</SelectItem>
+              <SelectItem value="other">{t.datasets?.otherType || "其他"}</SelectItem>
             </SelectContent>
           </Select>
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="排序" />
+              <SelectValue placeholder={t.datasets?.sortBy || "排序"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="newest">最新</SelectItem>
-              <SelectItem value="popular">热门</SelectItem>
-              <SelectItem value="views">浏览</SelectItem>
-              <SelectItem value="name">名称</SelectItem>
-              <SelectItem value="size">大小</SelectItem>
+              <SelectItem value="newest">{t.datasets?.newest || "最新"}</SelectItem>
+              <SelectItem value="popular">{t.datasets?.popular || "热门"}</SelectItem>
+              <SelectItem value="views">{t.datasets?.views || "浏览"}</SelectItem>
+              <SelectItem value="name">{t.datasets?.name || "名称"}</SelectItem>
+              <SelectItem value="size">{t.datasets?.size || "大小"}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -164,7 +168,7 @@ export default function DatasetsPage() {
         </div>
       ) : datasets.length === 0 ? (
         <div className="rounded-lg border border-border bg-card p-8 text-center">
-          <p className="text-muted-foreground">没有找到匹配的数据集</p>
+          <p className="text-muted-foreground">{t.datasets?.noDatasetsFound || "没有找到匹配的数据集"}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
