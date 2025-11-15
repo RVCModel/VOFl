@@ -3,9 +3,11 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { LayoutWrapper } from "@/components/layout-wrapper"
+import { TopProgressBar } from "@/components/top-progress-bar"
 import { ThemeProvider } from "@/components/theme-provider"
 import { LocaleProvider } from "@/components/locale-provider"
 import { AuthProvider } from "@/components/auth-context"
+import { createServerSupabase } from "@/lib/supabase-server"
 import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
@@ -21,17 +23,25 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // SSR: inject session & user for first render to avoid flicker
+  const supabase = createServerSupabase()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const initialSession = session ?? null
+  const initialUser = session?.user ?? null
   return (
     <html lang="zh" suppressHydrationWarning>
       <body className={`font-sans antialiased`}>
+        <TopProgressBar />
         <ThemeProvider defaultTheme="system">
           <LocaleProvider>
-            <AuthProvider>
+            <AuthProvider initialSession={initialSession} initialUser={initialUser}>
               <LayoutWrapper>{children}</LayoutWrapper>
               <Toaster />
             </AuthProvider>

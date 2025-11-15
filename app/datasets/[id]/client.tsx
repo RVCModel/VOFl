@@ -71,7 +71,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const { user } = useAuth()
+  const { user, session } = useAuth()
   const { locale } = useLocale()
   const t = translations[locale]
   const id = params.id as string
@@ -119,10 +119,12 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
       })
       
       if (user) {
-        params.append('userId', user.id)
+        
       }
       
-      const response = await fetch(`/api/datasets/${id}?${params.toString()}`)
+      const response = await fetch(`/api/datasets/${id}?${params.toString()}` , {
+        headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : undefined,
+      })
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -164,10 +166,12 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
     try {
       // 获取点赞状态和数量
       const likeUrl = user 
-        ? `/api/datasets/like?datasetId=${id}&userId=${user.id}`
+        ? `/api/datasets/like?datasetId=${id}`
         : `/api/datasets/like?datasetId=${id}`
       
-      const likeResponse = await fetch(likeUrl)
+      const likeResponse = await fetch(likeUrl, {
+        headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : undefined,
+      })
       if (likeResponse.ok) {
         const likeData = await likeResponse.json()
         setIsLiked(likeData.isLiked || false)
@@ -176,10 +180,12 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
 
       // 获取收藏状态和数量
       const collectionUrl = user 
-        ? `/api/datasets/collection?datasetId=${id}&userId=${user.id}`
+        ? `/api/datasets/collection?datasetId=${id}`
         : `/api/datasets/collection?datasetId=${id}`
       
-      const collectionResponse = await fetch(collectionUrl)
+      const collectionResponse = await fetch(collectionUrl, {
+        headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : undefined,
+      })
       if (collectionResponse.ok) {
         const collectionData = await collectionResponse.json()
         setIsCollected(collectionData.isCollected || false)
@@ -202,16 +208,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
     }
 
     try {
-      const response = await fetch('/api/datasets/like', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          datasetId: id,
-          userId: user.id
-        })
-      })
+      const response = await fetch('/api/datasets/like', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}) }, body: JSON.stringify({ datasetId: id }) })
       
       if (!response.ok) {
         throw new Error('Failed to update like status')
@@ -247,16 +244,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
     }
 
     try {
-      const response = await fetch('/api/datasets/collection', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          datasetId: id,
-          userId: user.id
-        })
-      })
+      const response = await fetch('/api/datasets/collection', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}) }, body: JSON.stringify({ datasetId: id }) })
       
       if (!response.ok) {
         throw new Error('Failed to update collection status')
@@ -296,11 +284,10 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
       const response = await fetch(`/api/datasets/${id}/follow`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
         },
         body: JSON.stringify({
-          userId: user.id,
-          authorId: dataset.user_id,
           action
         })
       })
@@ -343,10 +330,11 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
       const response = await fetch(`/api/datasets/${id}/download`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
         },
         body: JSON.stringify({
-          userId: user.id
+          datasetId: id
         })
       })
       
@@ -512,10 +500,11 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
     if (!user || !dataset || user.id === dataset.user_id) return
 
     try {
-      const response = await fetch(`/api/datasets/${id}/follow?userId=${user.id}`, {
+      const response = await fetch(`/api/datasets/${id}/follow`, {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {})
         }
       })
       
@@ -1057,3 +1046,7 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
     </div>
   )
 }
+
+
+
+

@@ -19,6 +19,8 @@ interface DatasetCardProps {
   price?: number | null;
   fileSize?: number | null;
   fileType?: string | null;
+  recommended?: boolean;
+  recommendedLabel?: string;
 }
 
 export const DatasetCard: React.FC<DatasetCardProps> = ({
@@ -36,6 +38,8 @@ export const DatasetCard: React.FC<DatasetCardProps> = ({
   price = null,
   fileSize = null,
   fileType = null,
+  recommended = false,
+  recommendedLabel = '为你推荐',
 }) => {
   const router = useRouter();
 
@@ -94,12 +98,19 @@ export const DatasetCard: React.FC<DatasetCardProps> = ({
           </Badge>
         </div>
         
-        {/* 右上角：付费标签 */}
-        {isPaid && (
-          <div className="absolute top-2 right-2">
-            <Badge variant="secondary" className="bg-amber-500/80 text-white hover:bg-amber-600/80 backdrop-blur-sm text-xs">
-              付费
-            </Badge>
+        {/* 右上角：推荐/付费标签堆叠 */}
+        {(recommended || isPaid) && (
+          <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+            {recommended && (
+              <Badge variant="secondary" className="bg-blue-500/80 text-white hover:bg-blue-600/80 backdrop-blur-sm text-xs">
+                {recommendedLabel}
+              </Badge>
+            )}
+            {isPaid && (
+              <Badge variant="secondary" className="bg-amber-500/80 text-white hover:bg-amber-600/80 backdrop-blur-sm text-xs">
+                付费
+              </Badge>
+            )}
           </div>
         )}
         

@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { ModelCard } from '@/components/model-card'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { useAuth } from '@/components/auth-context'
+import { useLocale } from '@/components/locale-provider'
+import { translations } from '@/lib/i18n'
 
 interface Model {
   id: string
@@ -40,6 +43,9 @@ export function ModelList({
   searchQuery = '',
   viewMode = "grid"
 }: ModelListProps) {
+  const { user, session } = useAuth()
+  const { locale } = useLocale()
+  const t = translations[locale]
   const [models, setModels] = useState<Model[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -68,8 +74,11 @@ export function ModelList({
         sortBy,
         ...(searchQuery && { searchQuery })
       })
+      // no userId param; backend uses Authorization
       
-      const response = await fetch(`/api/models?${params}`)
+      const response = await fetch(`/api/models?${params}`, {
+        headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : undefined,
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch models')
       }
@@ -118,6 +127,8 @@ export function ModelList({
           username={model.profiles?.username}
           avatarUrl={model.profiles?.avatar_url}
           isPaid={model.is_paid || false}
+          recommended={(model as any).rec_meta && ((model as any).rec_meta.prefBoost || 0) > 0}
+          recommendedLabel={t?.badges?.recommended || '为你推荐'}
         />
       </div>
     )

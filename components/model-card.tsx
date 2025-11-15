@@ -14,6 +14,8 @@ interface ModelCardProps {
   displayName?: string;
   avatarUrl?: string;
   isPaid?: boolean;
+  recommended?: boolean;
+  recommendedLabel?: string;
 }
 
 export const ModelCard: React.FC<ModelCardProps> = ({
@@ -26,6 +28,8 @@ export const ModelCard: React.FC<ModelCardProps> = ({
   displayName,
   avatarUrl,
   isPaid = false,
+  recommended = false,
+  recommendedLabel = '为你推荐',
 }) => {
   const router = useRouter();
 
@@ -56,12 +60,19 @@ export const ModelCard: React.FC<ModelCardProps> = ({
           </Badge>
         </div>
         
-        {/* 右上角：付费标签 */}
-        {isPaid && (
-          <div className="absolute top-2 right-2">
-            <Badge variant="secondary" className="bg-amber-500/80 text-white hover:bg-amber-600/80 backdrop-blur-sm text-xs">
-              付费
-            </Badge>
+        {/* 右上角：推荐/付费标签堆叠 */}
+        {(recommended || isPaid) && (
+          <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+            {recommended && (
+              <Badge variant="secondary" className="bg-blue-500/80 text-white hover:bg-blue-600/80 backdrop-blur-sm text-xs">
+                {recommendedLabel}
+              </Badge>
+            )}
+            {isPaid && (
+              <Badge variant="secondary" className="bg-amber-500/80 text-white hover:bg-amber-600/80 backdrop-blur-sm text-xs">
+                付费
+              </Badge>
+            )}
           </div>
         )}
         

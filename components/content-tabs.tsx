@@ -4,7 +4,12 @@ import { useState } from "react"
 import { useLocale } from "./locale-provider"
 import { translations } from "@/lib/i18n"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ChevronDown } from "lucide-react"
 import { ModelList } from "./model-list"
 import { DatasetList } from "./dataset-list"
@@ -14,76 +19,61 @@ export function ContentTabs() {
   const { locale } = useLocale()
   const t = translations[locale]
 
-  const [activeTab, setActiveTab] = useState("all")
+  const [activeTab, setActiveTab] = useState<"all" | "models" | "datasets">("all")
   const [activeCategory, setActiveCategory] = useState("all")
   const [activeType, setActiveType] = useState("all")
   const [sortBy, setSortBy] = useState("recommended")
 
   const tabs = [
-    { id: "all", label: "全部" },
-    { id: "models", label: t.tabs.models },
-    { id: "datasets", label: t.tabs.datasets },
+    { id: "all" as const, label: t.common?.all || "全部" },
+    { id: "models" as const, label: t.tabs.models },
+    { id: "datasets" as const, label: t.tabs.datasets },
   ]
 
   const modelCategories = [
-    { id: "all", label: t.categories.all },
-    { id: "ip_anime", label: "动漫IP" },
-    { id: "explanation", label: "解说" },
-    { id: "character", label: "角色" },
-    { id: "game", label: "游戏" },
-    { id: "other", label: "其他" },
+    { id: "all", label: t.models?.allCategories || t.categories?.all || "全部分类" },
+    { id: "ip_anime", label: t.categories?.ipAnime || "动漫IP" },
+    { id: "explanation", label: t.categories?.explanation || "解说类" },
+    { id: "character", label: t.categories?.character || "角色音色" },
+    { id: "game", label: t.categories?.game || "游戏音色" },
+    { id: "other", label: t.categories?.other || "其他" },
   ]
 
-  // 数据集分类选项
   const datasetCategories = [
-    { id: "all", label: "全部分类" },
-    { id: "speech", label: "语音合成" },
-    { id: "voice-conversion", label: "声音转换" },
-    { id: "speech-recognition", label: "语音识别" },
-    { id: "tts", label: "文本转语音" },
-    { id: "other", label: "其他" }
+    { id: "all", label: t.datasets?.allCategories || "全部分类" },
+    { id: "ip_anime", label: t.categories?.ipAnime || "动漫IP" },
+    { id: "explanation", label: t.categories?.explanation || "解说类" },
+    { id: "character", label: t.categories?.character || "角色音色" },
+    { id: "game", label: t.categories?.game || "游戏音色" },
+    { id: "other", label: t.categories?.other || "其他" },
   ]
 
-  // 数据集类型选项
   const datasetTypes = [
-    { id: "all", label: "全部类型" },
-    { id: "audio", label: "音频" },
-    { id: "text", label: "文本" },
-    { id: "video", label: "视频" },
-    { id: "image", label: "图像" }
+    { id: "all", label: t.datasets?.allTypes || "全部类型" },
+    { id: "audio", label: t.datasets?.voiceType || "语音" },
+    { id: "text", label: t.datasets?.textType || "文本" },
+    // 页面上本来就有 video / image，这里给出合理的多语言 fallback
+    { id: "video", label: (t as any)?.datasets?.videoType || "视频" },
+    { id: "image", label: t.datasets?.imageType || "图片" },
   ]
 
-  // 根据当前标签页获取分类选项
   const getCategoryOptions = () => {
     if (activeTab === "all") {
-      // 为"全部"标签页提供合并的分类选项
       return [
-        { id: "all", label: "全部分类" },
-        { id: "ip_anime", label: "动漫IP" },
-        { id: "explanation", label: "解说" },
-        { id: "character", label: "角色" },
-        { id: "game", label: "游戏" },
-        { id: "speech", label: "语音合成" },
-        { id: "voice-conversion", label: "声音转换" },
-        { id: "speech-recognition", label: "语音识别" },
-        { id: "tts", label: "文本转语音" },
-        { id: "other", label: "其他" }
+        { id: "all", label: t.datasets?.allCategories || "全部分类" },
+        { id: "ip_anime", label: t.categories?.ipAnime || "动漫IP" },
+        { id: "explanation", label: t.categories?.explanation || "解说类" },
+        { id: "character", label: t.categories?.character || "角色音色" },
+        { id: "game", label: t.categories?.game || "游戏音色" },
+        { id: "other", label: t.categories?.other || "其他" },
       ]
     }
     return activeTab === "models" ? modelCategories : datasetCategories
   }
 
-  // 根据当前标签页获取类型选项
   const getTypeOptions = () => {
     if (activeTab === "all") {
-      // 为"全部"标签页提供合并的类型选项
-      return [
-        { id: "all", label: "全部类型" },
-        { id: "audio", label: "音频" },
-        { id: "text", label: "文本" },
-        { id: "video", label: "视频" },
-        { id: "image", label: "图像" }
-      ]
+      return datasetTypes
     }
     return activeTab === "models" ? [] : datasetTypes
   }
@@ -105,58 +95,66 @@ export function ContentTabs() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-6 py-3 text-sm font-medium transition-colors relative ${
-              activeTab === tab.id ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+            className={`relative px-6 py-3 text-sm font-medium transition-colors ${
+              activeTab === tab.id
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {tab.label}
-            {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+            {activeTab === tab.id && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            )}
           </button>
         ))}
       </div>
 
       {/* Categories and Sort */}
       <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            {getCategoryOptions().map((category) => (
-              <Button
-                key={category.id}
-                variant={activeCategory === category.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveCategory(category.id)}
-                className="text-xs h-8"
-              >
-                {category.label}
-              </Button>
-            ))}
-            
-            {/* 类型筛选下拉菜单 - 仅在数据集和全部标签页显示 */}
-            {(activeTab === "datasets" || activeTab === "all") && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-xs h-8 gap-1">
-                    {getTypeOptions().find(option => option.id === activeType)?.label || "类型"}
-                    <ChevronDown className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-[120px]">
-                  {getTypeOptions().map((type) => (
-                    <DropdownMenuItem
-                      key={type.id}
-                      onClick={() => setActiveType(type.id)}
-                      className={activeType === type.id ? "bg-accent" : ""}
-                    >
-                      {type.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {getCategoryOptions().map((category) => (
+            <Button
+              key={category.id}
+              variant={activeCategory === category.id ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveCategory(category.id)}
+              className="h-8 text-xs"
+            >
+              {category.label}
+            </Button>
+          ))}
+
+          {(activeTab === "datasets" || activeTab === "all") && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 text-xs"
+                >
+                  {getTypeOptions().find((option) => option.id === activeType)
+                    ?.label || t.datasets?.allTypes || "全部类型"}
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-[120px]">
+                {getTypeOptions().map((type) => (
+                  <DropdownMenuItem
+                    key={type.id}
+                    onClick={() => setActiveType(type.id)}
+                    className={activeType === type.id ? "bg-accent" : ""}
+                  >
+                    {type.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2 bg-transparent">
+            <Button variant="outline" size="sm" className="bg-transparent gap-2">
               {sortOptions.find((opt) => opt.id === sortBy)?.label}
               <ChevronDown className="h-4 w-4" />
             </Button>
@@ -175,27 +173,35 @@ export function ContentTabs() {
         </DropdownMenu>
       </div>
 
+      {/* 推荐说明 */}
+      {sortBy === "recommended" && (
+        <div className="text-xs text-muted-foreground">
+          {t?.sortDescriptions?.recommended ||
+            "为你推荐：根据你的关注、点赞和标签偏好综合排序"}
+        </div>
+      )}
+
       {/* Content based on active tab */}
       <div className="mt-6">
         {activeTab === "all" && (
-          <CombinedList 
-            limit={20} 
+          <CombinedList
+            limit={20}
             category={activeCategory}
             type={activeType}
             sortBy={sortBy}
           />
         )}
         {activeTab === "models" && (
-          <ModelList 
-            limit={20} 
+          <ModelList
+            limit={20}
             category={activeCategory}
             type={activeType}
             sortBy={sortBy}
           />
         )}
         {activeTab === "datasets" && (
-          <DatasetList 
-            limit={20} 
+          <DatasetList
+            limit={20}
             category={activeCategory}
             type={activeType}
             sortBy={sortBy}
@@ -205,3 +211,4 @@ export function ContentTabs() {
     </div>
   )
 }
+

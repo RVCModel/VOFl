@@ -13,9 +13,60 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'all'
     const sortBy = searchParams.get('sortBy') || 'recommended'
     const searchQuery = searchParams.get('searchQuery') || ''
-    const userId = searchParams.get('userId')
+    // Resolve auth user from Authorization header for personalization only
+    let authUserId: string | null = null
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const { data: { user } } = await supabase.auth.getUser(token)
+      authUserId = user?.id || null
+    }
     
     let allModels: any[] = []
+
+    // Build preference profile
+    const buildPreferenceProfile = async (uid: string | null) => {
+      if (!uid) return null as any
+      try {
+        const { data: follows } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', uid)
+        const followedUserIds = new Set((follows || []).map((f: any) => f.following_id))
+
+        const { data: likedModelsIds } = await supabase
+          .from('model_likes')
+          .select('model_id')
+          .eq('user_id', uid)
+        const modelIds = (likedModelsIds || []).map((r: any) => r.model_id)
+        let likedModels: any[] = []
+        if (modelIds.length) {
+          const { data } = await supabase
+            .from('models')
+            .select('id,tags,content_category,type')
+            .in('id', modelIds)
+          likedModels = data || []
+        }
+
+        const tagFreq: Record<string, number> = {}
+        const catFreq: Record<string, number> = {}
+        const typeFreq: Record<string, number> = {}
+        for (const it of likedModels) {
+          const tags: string[] = Array.isArray(it?.tags) ? it.tags : []
+          for (const t of tags) tagFreq[t] = (tagFreq[t] || 0) + 1
+          if (it?.content_category) catFreq[it.content_category] = (catFreq[it.content_category] || 0) + 1
+          if (it?.type) typeFreq[it.type] = (typeFreq[it.type] || 0) + 1
+        }
+        const topTags = new Set(Object.entries(tagFreq).sort((a,b)=>b[1]-a[1]).slice(0,10).map(([k])=>k))
+        const topCats = new Set(Object.entries(catFreq).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k))
+        const topTypes = new Set(Object.entries(typeFreq).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>k))
+        return { followedUserIds, topTags, topCats, topTypes }
+      } catch {
+        return null as any
+      }
+    }
+    const preference = await buildPreferenceProfile(authUserId)
+    const hasPref = !!(preference && (preference.followedUserIds?.size || preference.topTags?.size || preference.topCats?.size || preference.topTypes?.size))
     
     // 如果有搜索条件，分别搜索名称/描述和标签
     if (searchQuery && searchQuery.trim()) {
@@ -61,9 +112,6 @@ export async function GET(request: NextRequest) {
       }
       
       // 根据用户ID筛选
-      if (userId) {
-        query = query.eq('user_id', userId)
-      }
       
       const { data: modelsData, error: modelsError } = await query
       if (modelsError) throw modelsError
@@ -71,6 +119,7 @@ export async function GET(request: NextRequest) {
     }
     
     // 应用排序
+    let scoreOfRef: any = (_: any) => ({ score: 0, meta: null })
     switch (sortBy) {
       case 'newest':
         allModels.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -114,9 +163,43 @@ export async function GET(request: NextRequest) {
         }
         break
       case 'recommended':
-      default:
-        allModels.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      default: {
+        const now = Date.now()
+        const halfLifeDays = 7
+        const ln = (n: number) => Math.log(1 + Math.max(0, n || 0))
+        const scoreOf = (item: any) => {
+          const views = item.view_count || 0
+          const downloads = item.download_count || 0
+          const ageDays = Math.max(0, (now - new Date(item.created_at).getTime()) / (1000*60*60*24))
+          const recency = Math.exp(-ageDays / halfLifeDays)
+          const popularity = 0.75 * ln(downloads) + 0.25 * ln(views)
+          let prefBoost = 0
+          let reasons: string[] = []
+          if (preference) {
+            const tags: string[] = Array.isArray(item?.tags) ? item.tags : []
+            const tagOverlap = tags.filter(t => preference.topTags.has(t)).length
+            const tagScore = Math.min(1, tagOverlap / 3)
+            const catScore = item?.content_category && preference.topCats.has(item.content_category) ? 1 : 0
+            const typeScore = item?.type && preference.topTypes.has(item.type) ? 1 : 0
+            const followScore = preference.followedUserIds.has(item.user_id) ? 1 : 0
+            if (tagScore > 0) reasons.push('tag')
+            if (catScore > 0) reasons.push('category')
+            if (typeScore > 0) reasons.push('type')
+            if (followScore > 0) reasons.push('follow')
+            prefBoost = 0.3 * tagScore + 0.15 * catScore + 0.1 * typeScore + 0.25 * followScore
+          }
+          const wPopularity = hasPref ? 0.5 : 0.6
+          const wRecency = hasPref ? 0.3 : 0.4
+          const wPref = hasPref ? 0.2 : 0.0
+          let score = 0.5 * popularity + 0.3 * recency + 0.2 * prefBoost
+          if (!hasPref) score += Math.random() * 0.01
+          return { score, meta: { popularity, recency, prefBoost, reasons } }
+        }
+        allModels.sort((a,b)=>scoreOf(b).score - scoreOf(a).score)
+        // attach rec_meta for the current page after pagination below
+        scoreOfRef = scoreOf
         break
+      }
     }
     
     // 分页处理
@@ -156,6 +239,7 @@ export async function GET(request: NextRequest) {
       const profile = profilesData.find(p => p.id === model.user_id)
       return {
         ...model,
+        rec_meta: sortBy === 'recommended' ? scoreOfRef(model).meta : null,
         profiles: profile ? {
           username: profile.username,
           display_name: profile.display_name,
@@ -237,3 +321,5 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+

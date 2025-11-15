@@ -12,7 +12,13 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const datasetId = searchParams.get('datasetId')
-    const userId = searchParams.get('userId')
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    let userId: string | null = null
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const { data: { user } } = await supabase.auth.getUser(token)
+      userId = user?.id || null
+    }
 
     if (!datasetId) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 })
@@ -55,9 +61,20 @@ export async function GET(request: Request) {
 // 切换收藏状态
 export async function POST(request: Request) {
   try {
-    const { datasetId, userId } = await request.json()
+    const { datasetId } = await request.json()
 
-    if (!datasetId || !userId) {
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 })
+    }
+    const token = authHeader.substring(7)
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
+      return NextResponse.json({ error: '用户认证失败' }, { status: 401 })
+    }
+    const userId = user.id
+
+    if (!datasetId) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 })
     }
 

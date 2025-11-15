@@ -13,11 +13,18 @@ export async function POST(
     
     // 获取请求体
     const body = await request.json()
-    const { userId, action } = body // action: 'like' 或 'unlike'
+    const { action } = body
+    let userId: string | null = null
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const { data: { user } } = await supabase.auth.getUser(token)
+      userId = user?.id || null
+    } // action: 'like' 或 'unlike'
     
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID is required' },
+      return NextResponse.json({ error: '未授权' }, { status: 401 })
+    },
         { status: 400 }
       )
     }

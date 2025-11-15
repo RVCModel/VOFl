@@ -5,6 +5,9 @@ import { ModelCard } from '@/components/model-card'
 import { DatasetCard } from '@/components/dataset-card'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { useAuth } from '@/components/auth-context'
+import { useLocale } from '@/components/locale-provider'
+import { translations } from '@/lib/i18n'
 
 interface Model {
   id: string
@@ -78,6 +81,9 @@ export function CombinedList({
   searchQuery = '',
   viewMode = "grid"
 }: CombinedListProps) {
+  const { user, session } = useAuth()
+  const { locale } = useLocale()
+  const t = translations[locale]
   const [items, setItems] = useState<CombinedItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -117,9 +123,12 @@ export function CombinedList({
       }
 
       params.append('sortBy', sortBy)
+      // no userId in query; backend reads Authorization for personalization
 
       // 调用API获取数据
-      const response = await fetch(`/api/combined?${params.toString()}`)
+      const response = await fetch(`/api/combined?${params.toString()}` , {
+        headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : undefined,
+      })
       const data = await response.json()
 
       if (!response.ok) {
@@ -154,7 +163,7 @@ export function CombinedList({
   }
 
   // 根据视图模式渲染不同的布局
-  const renderItem = (item: CombinedItem) => {
+  const renderItem = (item: CombinedItem & { rec_meta?: any; content_category?: string }) => {
     if (item.item_type === 'model') {
       return (
         <div key={item.id} className="space-y-2">
@@ -169,6 +178,8 @@ export function CombinedList({
             displayName={item.profiles?.display_name}
             avatarUrl={item.profiles?.avatar_url}
             isPaid={item.is_paid || false}
+            recommended={!!item.rec_meta && (item.rec_meta.prefBoost || 0) > 0}
+            recommendedLabel={t?.badges?.recommended || '为你推荐'}
           />
         </div>
       )
@@ -180,12 +191,15 @@ export function CombinedList({
             name={item.name}
             coverImageUrl={item.cover_image_url}
             type={item.type || 'gpt-sovits'}
+            contentCategory={item.content_category as any}
             downloadCount={item.download_count || 0}
             viewCount={item.view_count || 0}
             username={item.profiles?.username}
             displayName={item.profiles?.display_name}
             avatarUrl={item.profiles?.avatar_url}
             isPaid={item.is_paid || false}
+            recommended={!!item.rec_meta && (item.rec_meta.prefBoost || 0) > 0}
+            recommendedLabel={t?.badges?.recommended || '为你推荐'}
           />
         </div>
       )

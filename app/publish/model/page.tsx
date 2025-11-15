@@ -513,7 +513,7 @@ function PublishModelContent() {
   }
   
   const renderStep1 = () => (
-    <Card className="shadow-lg transition-all duration-300 hover:shadow-xl">
+    <Card className="shadow-lg transition-all duration-300 hover:shadow-xl border border-border/60 bg-card/90 backdrop-blur-sm">
       <CardHeader className="pb-4">
         <CardTitle className="text-xl font-semibold">{t.step1.title}</CardTitle>
         <CardDescription className="text-muted-foreground">{t.step1.description}</CardDescription>
@@ -634,7 +634,7 @@ function PublishModelContent() {
   )
   
   const renderStep2 = () => (
-    <Card className="shadow-lg transition-all duration-300 hover:shadow-xl">
+    <Card className="shadow-lg transition-all duration-300 hover:shadow-xl border border-border/60 bg-card/90 backdrop-blur-sm">
       <CardHeader className="pb-4">
         <CardTitle className="text-xl font-semibold">{basicInfo.publishType === "model" ? t.step2.modelTitle : t.step2.datasetTitle}</CardTitle>
         <CardDescription className="text-muted-foreground">{basicInfo.publishType === "model" ? t.step2.modelDescription : t.step2.datasetDescription}</CardDescription>
@@ -775,7 +775,7 @@ function PublishModelContent() {
   )
   
   const renderStep3 = () => (
-    <Card className="shadow-lg transition-all duration-300 hover:shadow-xl">
+    <Card className="shadow-lg transition-all duration-300 hover:shadow-xl border border-border/60 bg-card/90 backdrop-blur-sm">
       <CardHeader className="pb-4">
         <CardTitle className="text-xl font-semibold">{basicInfo.publishType === "model" ? t.step3.title : t.step3.datasetTitle}</CardTitle>
         <CardDescription className="text-muted-foreground">
@@ -1158,7 +1158,8 @@ function PublishModelContent() {
   )
   
   return (
-    <div className="container mx-auto py-8 px-4 max-w-4xl">
+    <section className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-background via-background to-muted/20 py-10">
+      <div className="container mx-auto px-4 max-w-5xl">
       {alert.show && (
         <div className="mb-6">
           <Alert variant={alert.type === 'error' ? 'destructive' : 'default'}>
@@ -1169,8 +1170,12 @@ function PublishModelContent() {
       )}
       
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold mb-2 text-center">{t.title}</h1>
-        <p className="text-muted-foreground text-center text-lg">{t.description}</p>
+        <h1 className="text-3xl font-bold mb-2 bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+          {t.title}
+        </h1>
+        <p className="text-muted-foreground text-center text-lg max-w-2xl mx-auto">
+          {t.description}
+        </p>
       </div>
       
       <div className="mb-8">
@@ -1179,9 +1184,9 @@ function PublishModelContent() {
             <div key={step} className="flex items-center">
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${
-                  currentStep >= step
-                    ? "bg-primary text-primary-foreground shadow-md scale-110"
-                    : "bg-muted text-muted-foreground"
+                   currentStep >= step
+                     ? "bg-primary text-primary-foreground shadow-md scale-110"
+                     : "bg-muted text-muted-foreground"
                 }`}
               >
                 {currentStep > step ? (
@@ -1220,6 +1225,7 @@ function PublishModelContent() {
         {currentStep === 2 && renderStep2()}
         {currentStep === 3 && renderStep3()}
       </div>
-    </div>
+      </div>
+    </section>
   )
 }

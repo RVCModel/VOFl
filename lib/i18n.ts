@@ -118,6 +118,12 @@ export const translations = {
       mostDownload: "最多下载",
       mostDiscuss: "最多话图",
     },
+    sortDescriptions: {
+      recommended: "为你推荐：基于你的关注、点赞与内容偏好综合排序",
+    },
+    badges: {
+      recommended: "为你推荐",
+    },
     models: {
       title: "TTS模型",
       description: "浏览和下载各种语音合成模型",
@@ -749,6 +755,12 @@ export const translations = {
       mostRun: "Most Run",
       mostDownload: "Most Downloaded",
       mostDiscuss: "Most Discussed",
+    },
+    sortDescriptions: {
+      recommended: "For you: ranked using your follows, likes and content preferences",
+    },
+    badges: {
+      recommended: "For You",
     },
     models: {
       title: "TTS Models",

@@ -12,15 +12,17 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const modelId = searchParams.get('modelId')
-    const userId = searchParams.get('userId')
-
     if (!modelId) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 })
     }
-
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    let userId: string | null = null
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const { data: { user } } = await supabase.auth.getUser(token)
+      userId = user?.id || null
+    }
     let isLiked = false
-    
-    // 只有当提供了userId时才检查用户是否已点赞
     if (userId) {
       const { data, error } = await supabase
         .from('model_likes')
@@ -55,9 +57,20 @@ export async function GET(request: Request) {
 // 切换点赞状态
 export async function POST(request: Request) {
   try {
-    const { modelId, userId } = await request.json()
+    const { modelId } = await request.json()
 
-    if (!modelId || !userId) {
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 })
+    }
+    const token = authHeader.substring(7)
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) {
+      return NextResponse.json({ error: '用户认证失败' }, { status: 401 })
+    }
+    const userId = user.id
+
+    if (!modelId) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 })
     }
 
@@ -121,3 +134,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '服务器错误' }, { status: 500 })
   }
 }
+
+
+

@@ -5,6 +5,9 @@ import { useSearchParams } from 'next/navigation'
 import { DatasetCard } from '@/components/dataset-card'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { useAuth } from '@/components/auth-context'
+import { useLocale } from '@/components/locale-provider'
+import { translations } from '@/lib/i18n'
 
 interface Dataset {
   id: string
@@ -41,6 +44,9 @@ export function DatasetList({
   searchQuery = '',
   viewMode = "grid"
 }: DatasetListProps) {
+  const { user, session } = useAuth()
+  const { locale } = useLocale()
+  const t = translations[locale]
   const [datasets, setDatasets] = useState<Dataset[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -69,8 +75,11 @@ export function DatasetList({
         sortBy,
         ...(searchQuery && { searchQuery })
       })
+      // no userId param; backend uses Authorization
       
-      const response = await fetch(`/api/datasets?${params}`)
+      const response = await fetch(`/api/datasets?${params}`, {
+        headers: session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : undefined,
+      })
       if (!response.ok) {
         throw new Error('Failed to fetch datasets')
       }
@@ -111,12 +120,15 @@ export function DatasetList({
           name={dataset.name}
           coverImageUrl={dataset.cover_image_url}
           type={dataset.type || 'gpt-sovits'}
+          contentCategory={(dataset as any).content_category as any}
           downloadCount={dataset.download_count || 0}
           viewCount={dataset.view_count || 0}
           username={dataset.profiles?.username}
           displayName={dataset.profiles?.display_name}
           avatarUrl={dataset.profiles?.avatar_url}
           isPaid={dataset.is_paid || false}
+          recommended={(dataset as any).rec_meta && ((dataset as any).rec_meta.prefBoost || 0) > 0}
+          recommendedLabel={t?.badges?.recommended || '为你推荐'}
         />
       </div>
     )

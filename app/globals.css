@@ -98,3 +98,46 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes audio-wave {
+  0%, 100% {
+    transform: translateY(8%) scaleY(0.6);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-18%) scaleY(1.1);
+    opacity: 1;
+  }
+}
+
+.audio-visualizer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+}
+
+.audio-bar {
+  width: 7px;
+  height: 65%;
+  border-radius: 9999px;
+  background: linear-gradient(to top, #22c55e, #38bdf8, #a855f7);
+  transform-origin: bottom;
+  animation: audio-wave 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--bar-index) * 0.06s);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6),
+    0 0 16px rgba(168, 85, 247, 0.5);
+}
+
+.audio-bar:nth-child(3n) {
+  animation-duration: 1.3s;
+}
+
+.audio-bar:nth-child(4n) {
+  animation-duration: 0.9s;
+}
+
+.audio-bar:nth-child(2n) {
+  animation-delay: 0.15s;
+}

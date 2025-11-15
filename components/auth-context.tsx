@@ -16,29 +16,32 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+export function AuthProvider({ children, initialSession = null, initialUser = null }: { children: React.ReactNode, initialSession?: Session | null, initialUser?: User | null }) {
+  const [user, setUser] = useState<User | null>(initialUser)
+  const [session, setSession] = useState<Session | null>(initialSession)
+  const [isLoading, setIsLoading] = useState(!initialSession)
 
   useEffect(() => {
-    // 获取当前会话
-    const getSession = async () => {
-      setIsLoading(true)
-      
-      // 先尝试从本地存储恢复会话
-      const { data: { session }, error } = await supabase.auth.getSession()
-      
-      if (error) {
-        console.error('Error getting session:', error)
+    // Prefer SSR-injected session if available
+    const init = async () => {
+      if (initialSession) {
+        try {
+          await supabase.auth.setSession(initialSession)
+        } catch (_) {}
+        setIsLoading(false)
+      } else {
+        setIsLoading(true)
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) {
+          console.error('Error getting session:', error)
+        }
+        setSession(session)
+        setUser(session?.user ?? null)
+        setIsLoading(false)
       }
-      
-      setSession(session)
-      setUser(session?.user ?? null)
-      setIsLoading(false)
     }
 
-    getSession()
+    init()
 
     // 监听认证状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -52,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [])
+  }, [initialSession])
 
   // 登录方法
   const signIn = async (email: string, password: string, captchaToken?: string) => {
@@ -164,3 +167,5 @@ export function useAuth() {
   }
   return context
 }
+
+

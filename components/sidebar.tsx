@@ -42,7 +42,7 @@ interface SidebarProps {
 export function Sidebar({ isCollapsed }: SidebarProps) {
   const pathname = usePathname()
   const { locale } = useLocale()
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const t = translations[locale]
   const [isAdmin, setIsAdmin] = useState(false)
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
@@ -104,7 +104,7 @@ export function Sidebar({ isCollapsed }: SidebarProps) {
         </nav>
 
         {/* 管理员区域 */}
-        {isAdmin && (
+        {!isLoading && isAdmin && (
           <>
             <div className="mx-4 my-2 border-t border-gray-200 dark:border-gray-700"></div>
             <nav className="flex flex-col gap-2 px-4 pb-4">
@@ -165,3 +165,5 @@ export function Sidebar({ isCollapsed }: SidebarProps) {
     </aside>
   )
 }
+
+

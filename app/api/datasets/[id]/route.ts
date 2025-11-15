@@ -13,7 +13,13 @@ export async function GET(
     const searchParams = request.nextUrl.searchParams
     const includeAuthor = searchParams.get('includeAuthor') === 'true'
     const includeAuthorDatasets = searchParams.get('includeAuthorDatasets') === 'true'
-    const userId = searchParams.get('userId') // 用于获取点赞/收藏状态
+    let userId: string | null = null
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const { data: { user } } = await supabase.auth.getUser(token)
+      userId = user?.id || null
+    } // 用于获取点赞/收藏状态
     
     // 获取数据集信息
     const { data: dataset, error } = await supabase

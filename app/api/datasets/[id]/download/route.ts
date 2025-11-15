@@ -13,7 +13,13 @@ export async function POST(
     
     // 获取请求体
     const body = await request.json()
-    const { userId } = body
+    let userId: string | null = null
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      const { data: { user } } = await supabase.auth.getUser(token)
+      userId = user?.id || null
+    }
     
     // 获取数据集信息
     const { data: dataset, error: datasetError } = await supabase
