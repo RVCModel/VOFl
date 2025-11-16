@@ -1,7 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase-server"
 import { NextRequest, NextResponse } from "next/server"
 
-// 重置密码：发送邮件
+// 请求重置密码：发送重置邮件
 export async function POST(request: NextRequest) {
   try {
     const { email } = await request.json()
@@ -9,15 +9,15 @@ export async function POST(request: NextRequest) {
     if (!email) {
       return NextResponse.json(
         { error: "邮箱不能为空" },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
-    // 简单邮箱格式校验
+    // 简单格式校验
     if (!email.includes("@")) {
       return NextResponse.json(
         { error: "请输入有效的邮箱地址" },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -27,8 +27,7 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SITE_URL ||
       "http://localhost:3000"
 
-    // 注意：每次请求内部创建 Supabase，避免在模块顶层调用 cookies()
-    const supabase = createServerSupabase()
+    const supabase = await createServerSupabase()
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${origin}/reset-password`,
@@ -37,8 +36,8 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("Password reset error:", error)
       return NextResponse.json(
-        { error: "重置密码邮件发送失败，请检查邮箱是否正确" },
-        { status: 400 }
+        { error: "发送重置邮件失败，请检查邮箱是否正确" },
+        { status: 400 },
       )
     }
 
@@ -49,8 +48,8 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Password reset error:", error)
     return NextResponse.json(
-      { error: "重置密码邮件发送失败，请稍后重试" },
-      { status: 500 }
+      { error: "发送重置邮件失败，请稍后重试" },
+      { status: 500 },
     )
   }
 }

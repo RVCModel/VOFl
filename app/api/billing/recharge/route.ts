@@ -1,16 +1,16 @@
-import { createServerSupabase } from "@/lib/supabase-server"
+import { createServiceClient } from "@/lib/supabase"
 import { NextRequest, NextResponse } from "next/server"
 import { Creem } from "creem"
 
 // 初始化 Creem SDK
 const creem = new Creem({
   apiKey: process.env.CREEM_API_KEY!,
-  serverIdx: 0, // 测试环境 API 服务器
+  serverIdx: 0,
 })
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerSupabase()
+    const supabase = createServiceClient()
 
     const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
     if (authError || !user) {
       console.error("用户认证失败:", authError)
       return NextResponse.json(
-        { error: "用户会话不存在或已过期" },
-        { status: 401 }
+        { error: "用户会话已失效或未登录" },
+        { status: 401 },
       )
     }
 
@@ -51,7 +51,10 @@ export async function POST(req: NextRequest) {
 
     if (rechargeError) {
       console.error("创建充值记录失败:", rechargeError)
-      return NextResponse.json({ error: "创建充值记录失败" }, { status: 500 })
+      return NextResponse.json(
+        { error: "创建充值记录失败，请检查权限或策略" },
+        { status: 500 },
+      )
     }
 
     let product
@@ -66,9 +69,9 @@ export async function POST(req: NextRequest) {
       product = await creem.createProduct({
         xApiKey: process.env.CREEM_API_KEY!,
         createProductRequestEntity: {
-          name: "余额充值",
+          name: "充值",
           description: "平台余额充值",
-          price: amount * 100, // 以分为单位
+          price: amount * 100,
           currency: "USD",
           billingType: "onetime",
         },
@@ -117,14 +120,14 @@ export async function POST(req: NextRequest) {
     console.error("创建充值会话失败:", error)
     return NextResponse.json(
       { error: "创建充值会话失败" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createServerSupabase()
+    const supabase = createServiceClient()
 
     const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
@@ -140,8 +143,8 @@ export async function GET(req: NextRequest) {
     if (authError || !user) {
       console.error("用户认证失败:", authError)
       return NextResponse.json(
-        { error: "用户会话不存在或已过期" },
-        { status: 401 }
+        { error: "用户会话已失效或未登录" },
+        { status: 401 },
       )
     }
 
@@ -182,8 +185,7 @@ export async function GET(req: NextRequest) {
     console.error("获取充值记录失败:", error)
     return NextResponse.json(
       { error: "获取充值记录失败" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
-

@@ -1,4 +1,4 @@
-import { createServerSupabase } from "@/lib/supabase-server"
+import { createServiceClient } from "@/lib/supabase"
 import { NextRequest, NextResponse } from "next/server"
 import { Creem } from "creem"
 
@@ -8,7 +8,7 @@ const creem = new Creem({
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createServerSupabase()
+    const supabase = createServiceClient()
 
     const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
@@ -24,8 +24,8 @@ export async function GET(req: NextRequest) {
     if (authError || !user) {
       console.error("用户认证失败:", authError)
       return NextResponse.json(
-        { error: "用户会话不存在或已过期" },
-        { status: 401 }
+        { error: "用户会话已失效或未登录" },
+        { status: 401 },
       )
     }
 
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     if (!rechargeId) {
       return NextResponse.json(
         { error: "缺少充值记录 ID" },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -48,14 +48,14 @@ export async function GET(req: NextRequest) {
     if (rechargeError || !rechargeRecord) {
       return NextResponse.json(
         { error: "充值记录不存在" },
-        { status: 404 }
+        { status: 404 },
       )
     }
 
     if (rechargeRecord.user_id !== user.id) {
       return NextResponse.json(
         { error: "无权访问该充值记录" },
-        { status: 403 }
+        { status: 403 },
       )
     }
 
@@ -81,14 +81,14 @@ export async function GET(req: NextRequest) {
               p_recharge_id: rechargeId,
               p_user_id: user.id,
               p_amount: Number(rechargeRecord.amount),
-            }
+            },
           )
 
           if (updateError) {
             console.error("完成充值失败:", updateError)
             return NextResponse.json(
               { error: "完成充值失败" },
-              { status: 500 }
+              { status: 500 },
             )
           }
 
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
         console.error("查询支付状态失败:", error)
         return NextResponse.json(
           { error: "查询支付状态失败" },
-          { status: 500 }
+          { status: 500 },
         )
       }
     }
@@ -116,14 +116,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       status: "pending",
-      message: "支付处理中",
+      message: "支付未完成",
     })
   } catch (error) {
     console.error("查询充值状态失败:", error)
     return NextResponse.json(
       { error: "查询充值状态失败" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
-

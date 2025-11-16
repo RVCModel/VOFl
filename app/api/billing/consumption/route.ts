@@ -1,10 +1,10 @@
-import { createServerSupabase } from "@/lib/supabase-server"
+import { createServiceClient } from "@/lib/supabase"
 import { NextRequest, NextResponse } from "next/server"
 
-// 新增消费记录
+// 创建消费记录
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerSupabase()
+    const supabase = createServiceClient()
 
     const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
@@ -20,26 +20,29 @@ export async function POST(req: NextRequest) {
     if (authError || !user) {
       console.error("用户认证失败:", authError)
       return NextResponse.json(
-        { error: "用户会话不存在或已过期" },
-        { status: 401 }
+        { error: "用户会话已失效或未登录" },
+        { status: 401 },
       )
     }
 
     const { amount, productType, productId, description } = await req.json()
 
     if (!amount || amount <= 0) {
-      return NextResponse.json({ error: "消费金额必须大于 0" }, { status: 400 })
+      return NextResponse.json(
+        { error: "消费金额必须大于 0" },
+        { status: 400 },
+      )
     }
 
     if (!productType) {
-      return NextResponse.json({ error: "未指定产品类型" }, { status: 400 })
+      return NextResponse.json({ error: "未指定消费类型" }, { status: 400 })
     }
 
     const { data: userBalance, error: balanceError } = await supabase
       .from("user_balances")
       .select("balance")
       .eq("user_id", user.id)
-      .single()
+      .maybeSingle()
 
     if (balanceError || !userBalance) {
       console.error("获取用户余额失败:", balanceError)
@@ -64,7 +67,10 @@ export async function POST(req: NextRequest) {
 
     if (consumptionError) {
       console.error("创建消费记录失败:", consumptionError)
-      return NextResponse.json({ error: "创建消费记录失败" }, { status: 500 })
+      return NextResponse.json(
+        { error: "创建消费记录失败" },
+        { status: 500 },
+      )
     }
 
     return NextResponse.json({
@@ -76,7 +82,7 @@ export async function POST(req: NextRequest) {
     console.error("创建消费记录失败:", error)
     return NextResponse.json(
       { error: "创建消费记录失败" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
@@ -84,7 +90,7 @@ export async function POST(req: NextRequest) {
 // 获取消费记录列表
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createServerSupabase()
+    const supabase = createServiceClient()
 
     const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
@@ -100,8 +106,8 @@ export async function GET(req: NextRequest) {
     if (authError || !user) {
       console.error("用户认证失败:", authError)
       return NextResponse.json(
-        { error: "用户会话不存在或已过期" },
-        { status: 401 }
+        { error: "用户会话已失效或未登录" },
+        { status: 401 },
       )
     }
 
@@ -125,7 +131,10 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("获取消费记录失败:", error)
-      return NextResponse.json({ error: "获取消费记录失败" }, { status: 500 })
+      return NextResponse.json(
+        { error: "获取消费记录失败" },
+        { status: 500 },
+      )
     }
 
     return NextResponse.json({
@@ -142,8 +151,7 @@ export async function GET(req: NextRequest) {
     console.error("获取消费记录失败:", error)
     return NextResponse.json(
       { error: "获取消费记录失败" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
-

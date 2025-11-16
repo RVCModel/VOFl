@@ -1,9 +1,9 @@
-import { createServerSupabase } from "@/lib/supabase-server"
+import { createServiceClient } from "@/lib/supabase"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerSupabase()
+    const supabase = createServiceClient()
 
     const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
@@ -19,8 +19,8 @@ export async function POST(req: NextRequest) {
     if (authError || !user) {
       console.error("用户认证失败:", authError)
       return NextResponse.json(
-        { error: "用户会话不存在或已过期" },
-        { status: 401 }
+        { error: "用户会话已失效或未登录" },
+        { status: 401 },
       )
     }
 
@@ -30,34 +30,34 @@ export async function POST(req: NextRequest) {
     if (!amount || amount <= 0) {
       return NextResponse.json(
         { error: "提现金额必须大于 0" },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     if (!withdrawalMethod) {
       return NextResponse.json(
         { error: "请选择提现方式" },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     if (!withdrawalAddress) {
       return NextResponse.json(
-        { error: "请输入提现地址" },
-        { status: 400 }
+        { error: "请输入提现收款账号" },
+        { status: 400 },
       )
     }
 
     const { data: userBalance, error: balanceError } = await supabase
       .from("user_balances")
-      .select("balance, frozen_balance")
+      .select("balance,frozen_balance")
       .eq("user_id", user.id)
-      .single()
+      .maybeSingle()
 
     if (balanceError || !userBalance) {
       return NextResponse.json(
         { error: "获取用户余额失败" },
-        { status: 500 }
+        { status: 500 },
       )
     }
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       console.error("创建提现记录失败:", withdrawalError)
       return NextResponse.json(
         { error: "创建提现记录失败" },
-        { status: 500 }
+        { status: 500 },
       )
     }
 
@@ -103,14 +103,14 @@ export async function POST(req: NextRequest) {
     console.error("创建提现记录失败:", error)
     return NextResponse.json(
       { error: "创建提现记录失败" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = createServerSupabase()
+    const supabase = createServiceClient()
 
     const authHeader = req.headers.get("Authorization")
     if (!authHeader) {
@@ -126,8 +126,8 @@ export async function GET(req: NextRequest) {
     if (authError || !user) {
       console.error("用户认证失败:", authError)
       return NextResponse.json(
-        { error: "用户会话不存在或已过期" },
-        { status: 401 }
+        { error: "用户会话已失效或未登录" },
+        { status: 401 },
       )
     }
 
@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
       console.error("获取提现记录失败:", error)
       return NextResponse.json(
         { error: "获取提现记录失败" },
-        { status: 500 }
+        { status: 500 },
       )
     }
 
@@ -171,8 +171,7 @@ export async function GET(req: NextRequest) {
     console.error("获取提现记录失败:", error)
     return NextResponse.json(
       { error: "获取提现记录失败" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
-

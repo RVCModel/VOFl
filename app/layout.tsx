@@ -29,7 +29,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   // SSR: inject session & user for first render to avoid flicker
-  const supabase = createServerSupabase()
+  const supabase = await createServerSupabase()
   const {
     data: { session },
   } = await supabase.auth.getSession()

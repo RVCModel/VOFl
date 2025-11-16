@@ -1,4 +1,4 @@
-import { createServerSupabase } from "@/lib/supabase-server"
+import { createServiceClient } from "@/lib/supabase"
 import { NextResponse, NextRequest } from "next/server"
 
 export interface WebhookResponse {
@@ -22,7 +22,7 @@ export interface WebhookResponse {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerSupabase()
+    const supabase = createServiceClient()
     const webhook = (await req.json()) as WebhookResponse
 
     console.log("收到 webhook 事件:", JSON.stringify(webhook, null, 2))
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
         console.error("获取充值记录失败:", rechargeError)
         return NextResponse.json(
           { error: "获取充值记录失败" },
-          { status: 500 }
+          { status: 500 },
         )
       }
 
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
         console.error("更新充值记录失败:", updateRechargeError)
         return NextResponse.json(
           { error: "更新充值记录失败" },
-          { status: 500 }
+          { status: 500 },
         )
       }
 
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         console.error("获取用户积分失败:", profileError)
         return NextResponse.json(
           { error: "获取用户积分失败" },
-          { status: 500 }
+          { status: 500 },
         )
       }
 
@@ -94,14 +94,14 @@ export async function POST(req: NextRequest) {
         console.error("更新用户积分失败:", updateCreditsError)
         return NextResponse.json(
           { error: "更新用户积分失败" },
-          { status: 500 }
+          { status: 500 },
         )
       }
 
       console.log(
         `充值记录 ${rechargeId} 已完成，用户 ${
           rechargeRecord.user_id
-        } 增加积分 ${rechargeRecord.amount}，新积分: ${newCredits}`
+        } 增加积分 ${rechargeRecord.amount}，新积分: ${newCredits}`,
       )
     } else if (!isSubscription) {
       console.log(`忽略非 checkout.completed 事件: ${webhook.eventType}`)
@@ -112,11 +112,10 @@ export async function POST(req: NextRequest) {
       message: "Webhook received successfully",
     })
   } catch (error) {
-    console.error("Error processing webhook:", error)
+    console.error("处理 webhook 失败:", error)
     return NextResponse.json(
       { error: "Failed to process webhook" },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
-
