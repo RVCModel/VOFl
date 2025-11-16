@@ -114,11 +114,50 @@ function PublishModelContent() {
     modelFile: "",
     datasetFile: ""
   })
+
+  const [previewAudios, setPreviewAudios] = useState<Array<{
+    id: number
+    fileName: string
+    fileSize: number
+    url: string
+    text: string
+    status: "idle" | "uploading" | "success" | "error"
+    progress: number
+  }>>([])
   const showAlert = (message: string, type: 'success' | 'error' | 'warning' = 'error') => {
     setAlert({ show: true, message, type })
     setTimeout(() => {
       setAlert(prev => ({ ...prev, show: false }))
     }, 5000)
+  }
+
+  const addPreviewSlot = () => {
+    setPreviewAudios((prev) => {
+      if (prev.length >= 3) return prev
+      const nextId = prev.length ? Math.max(...prev.map((p) => p.id)) + 1 : 1
+      return [
+        ...prev,
+        {
+          id: nextId,
+          fileName: "",
+          fileSize: 0,
+          url: "",
+          text: "",
+          status: "idle",
+          progress: 0,
+        },
+      ]
+    })
+  }
+
+  const removePreviewSlot = (id: number) => {
+    setPreviewAudios((prev) => prev.filter((p) => p.id !== id))
+  }
+
+  const updatePreviewText = (id: number, text: string) => {
+    setPreviewAudios((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, text } : p))
+    )
   }
   
   const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -359,6 +398,79 @@ function PublishModelContent() {
       showAlert(t.alerts.fileUploadFailed, 'error');
     }
   };
+
+  const handlePreviewFileChange = async (
+    id: number,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const allowedAudioTypes = [
+      "audio/wav",
+      "audio/mp3",
+      "audio/mpeg",
+      "audio/ogg",
+      "audio/m4a",
+    ]
+    if (
+      !allowedAudioTypes.includes(file.type) &&
+      !file.name.endsWith(".wav") &&
+      !file.name.endsWith(".mp3")
+    ) {
+      showAlert(t.alerts.validSampleFile, "error")
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showAlert(t.alerts.sampleFileSize, "error")
+      return
+    }
+
+    setPreviewAudios((prev) =>
+      prev.map((p) =>
+        p.id === id ? { ...p, status: "uploading", progress: 0 } : p
+      )
+    )
+
+    try {
+      const progressInterval = setInterval(() => {
+        setPreviewAudios((prev) =>
+          prev.map((p) =>
+            p.id === id && p.progress < 90
+              ? { ...p, progress: p.progress + 10 }
+              : p
+          )
+        )
+      }, 200)
+
+      const url = await uploadToR2(file, "preview-audio")
+
+      clearInterval(progressInterval)
+      setPreviewAudios((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                fileName: file.name,
+                fileSize: file.size,
+                url,
+                status: "success",
+                progress: 100,
+              }
+            : p
+        )
+      )
+      showAlert(t.alerts.fileUploadSuccess, "success")
+    } catch (error) {
+      console.error(t.alerts.uploadFailed, error)
+      setPreviewAudios((prev) =>
+        prev.map((p) =>
+          p.id === id ? { ...p, status: "error" } : p
+        )
+      )
+      showAlert(t.alerts.fileUploadFailed, "error")
+    }
+  }
   
   const handleCoverImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -438,12 +550,12 @@ function PublishModelContent() {
         return
       }
     } else {
-      if (!files.datasetFile || !files.modelFile) {
-        showAlert(t.alerts.uploadDatasetAndSample, 'error')
+      if (!files.datasetFile) {
+        showAlert(t.alerts.requiredFiles, 'error')
         return
       }
       
-      if (uploadStatus.datasetFile !== 'success' || uploadStatus.modelFile !== 'success') {
+      if (uploadStatus.datasetFile !== 'success') {
         showAlert(t.alerts.waitForUpload, 'error')
         return
       }
@@ -475,17 +587,28 @@ function PublishModelContent() {
       }
       
       // 如果是模型，添加模型特有字段
-      if (basicInfo.publishType === 'model') {
-        insertData.type = 'gpt-sovits'
-        insertData.reference_audio_url = fileUrls.referenceAudio
-        insertData.demo_audio_url = fileUrls.demoAudio
-        insertData.model_file_url = fileUrls.modelFile
-      } else {
-        insertData.type = 'voice'
-        insertData.file_url = fileUrls.datasetFile
-        // 暂时不保存示例文件URL，因为数据库表没有这个字段
-        // 如果需要保存示例文件，需要修改数据库表结构
-      }
+           // 根据发布类型补充字段
+           if (basicInfo.publishType === 'model') {
+            insertData.type = 'gpt-sovits'
+            insertData.reference_audio_url = fileUrls.referenceAudio
+            insertData.demo_audio_url = fileUrls.demoAudio
+            insertData.model_file_url = fileUrls.modelFile
+          } else {
+            insertData.type = 'voice'
+            insertData.file_url = fileUrls.datasetFile
+    
+            // 把第三步中添加的试听音频和文案写入数组字段
+            if (previewAudios.length) {
+              insertData.preview_audio_urls = previewAudios
+                .filter((p) => p.url)
+                .map((p) => p.url)
+    
+              insertData.preview_texts = previewAudios
+                .map((p) => p.text.trim())
+                .filter((text) => text.length > 0)
+            }
+          }
+    
       
       // 创建记录
       const { data: record, error } = await supabase
@@ -989,73 +1112,193 @@ function PublishModelContent() {
             </div>
           </div>
         )}
-        
-        <div className="space-y-2">
-          <Label htmlFor="modelFile" className="text-sm font-medium">{basicInfo.publishType === "model" ? t.step3.modelFile : t.step3.sampleFile} ({basicInfo.publishType === "model" ? "ZIP" : "MP3/WAV"}, {basicInfo.publishType === "model" ? t.step3.maxSize500 : t.step3.maxSize10})</Label>
-          <div
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${
-              dragActive.modelFile
-                ? "border-primary bg-primary/10 scale-[1.01]"
-                : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/20"
-            }`}
-            onDragEnter={(e) => handleDrag(e, 'modelFile')}
-            onDragLeave={(e) => handleDrag(e, 'modelFile')}
-            onDragOver={(e) => handleDrag(e, 'modelFile')}
-            onDrop={(e) => handleDrop(e, 'modelFile')}
-            onClick={() => document.getElementById('modelFile')?.click()}
-          >
-            <Input
-              id="modelFile"
-              type="file"
-              accept={basicInfo.publishType === "model" ? ".zip" : ".mp3,.wav"}
-              onChange={(e) => handleFileChange(e, 'modelFile')}
-              disabled={uploadStatus.modelFile === 'uploading'}
-              className="hidden"
-            />
-            <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-              <Upload className="h-8 w-8 text-primary" />
-            </div>
-            <p className="text-base font-medium mb-2">
-              {t.step3.dragOrClickModel}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {t.step3.modelFormat}
-            </p>
-            {uploadStatus.modelFile === 'uploading' && (
-              <div className="mt-6">
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
-                  <div
-                    className="bg-primary h-2.5 rounded-full transition-all duration-300"
-                    style={{ width: `${uploadProgress.modelFile}%` }}
-                  ></div>
+
+        {basicInfo.publishType === "model" ? (
+          <div className="space-y-2">
+            <Label htmlFor="modelFile" className="text-sm font-medium">
+              {t.step3.modelFile} (ZIP, {t.step3.maxSize500})
+            </Label>
+            <div
+              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${
+                dragActive.modelFile
+                  ? "border-primary bg-primary/10 scale-[1.01]"
+                  : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/20"
+              }`}
+              onDragEnter={(e) => handleDrag(e, "modelFile")}
+              onDragLeave={(e) => handleDrag(e, "modelFile")}
+              onDragOver={(e) => handleDrag(e, "modelFile")}
+              onDrop={(e) => handleDrop(e, "modelFile")}
+              onClick={() => document.getElementById("modelFile")?.click()}
+            >
+              <Input
+                id="modelFile"
+                type="file"
+                accept=".zip"
+                onChange={(e) => handleFileChange(e, "modelFile")}
+                disabled={uploadStatus.modelFile === "uploading"}
+                className="hidden"
+              />
+              <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Upload className="h-8 w-8 text-primary" />
+              </div>
+              <p className="text-base font-medium mb-2">
+                {t.step3.dragOrClickModel}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {t.step3.modelFormat}
+              </p>
+              {uploadStatus.modelFile === "uploading" && (
+                <div className="mt-6">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div
+                      className="bg-primary h-2.5 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress.modelFile}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {t.uploading} {uploadProgress.modelFile}%
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">{t.uploading} {uploadProgress.modelFile}%</p>
-              </div>
-            )}
-            {uploadStatus.modelFile === 'success' && (
-              <div className="mt-6 flex items-center justify-center text-green-600">
-                <CheckCircle className="h-5 w-5 mr-2" />
-                <span className="text-sm font-medium">{t.uploadSuccess}</span>
-              </div>
-            )}
-            {uploadStatus.modelFile === 'error' && (
-              <div className="mt-6 flex items-center justify-center text-red-600">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                <span className="text-sm font-medium">{t.uploadError}</span>
-              </div>
-            )}
-            {files.modelFile && (
-              <div className="mt-4 p-3 bg-muted/30 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  {t.selected}: {files.modelFile.name}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {(files.modelFile.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
-            )}
+              )}
+              {uploadStatus.modelFile === "success" && (
+                <div className="mt-6 flex items-center justify-center text-green-600">
+                  <CheckCircle className="h-5 w-5 mr-2" />
+                  <span className="text-sm font-medium">
+                    {t.uploadSuccess}
+                  </span>
+                </div>
+              )}
+              {uploadStatus.modelFile === "error" && (
+                <div className="mt-6 flex items-center justify-center text-red-600">
+                  <AlertCircle className="h-5 w-5 mr-2" />
+                  <span className="text-sm font-medium">
+                    {t.uploadError}
+                  </span>
+                </div>
+              )}
+              {files.modelFile && (
+                <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    {t.selected}: {files.modelFile.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {(files.modelFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-3 pt-4 border-t border-dashed border-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">试听音频（可选）</p>
+                <p className="text-xs text-muted-foreground">
+                  为数据集添加 1-3 条试听音频和对应文案，方便用户快速了解内容。
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={addPreviewSlot}
+                disabled={previewAudios.length >= 3}
+              >
+                添加试听
+              </Button>
+            </div>
+
+            {previewAudios.map((preview) => (
+              <div
+                key={preview.id}
+                className="rounded-xl border border-dashed border-muted-foreground/30 p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                      试听音频 {preview.id}
+                    </p>
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all duration-300 ${
+                        preview.status === "uploading"
+                          ? "border-primary bg-primary/5"
+                          : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/20"
+                      }`}
+                      onClick={() =>
+                        document
+                          .getElementById(`preview-audio-${preview.id}`)
+                          ?.click()
+                      }
+                    >
+                      <Input
+                        id={`preview-audio-${preview.id}`}
+                        type="file"
+                        accept=".mp3,.wav"
+                        onChange={(e) =>
+                          handlePreviewFileChange(preview.id, e)
+                        }
+                        disabled={preview.status === "uploading"}
+                        className="hidden"
+                      />
+                      <div className="mx-auto w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                        <Upload className="h-5 w-5 text-primary" />
+                      </div>
+                      <p className="text-xs font-medium mb-1">
+                        拖拽或点击上传试听音频
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        支持 MP3 / WAV，最大 10MB
+                      </p>
+                      {preview.status === "uploading" && (
+                        <div className="mt-3">
+                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div
+                              className="bg-primary h-1.5 rounded-full transition-all duration-300"
+                              style={{ width: `${preview.progress}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            {t.uploading} {preview.progress}%
+                          </p>
+                        </div>
+                      )}
+                      {preview.status === "success" && preview.fileName && (
+                        <div className="mt-2 text-[11px] text-muted-foreground">
+                          已上传：{preview.fileName} (
+                          {(preview.fileSize / 1024 / 1024).toFixed(2)} MB)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="shrink-0"
+                    onClick={() => removePreviewSlot(preview.id)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    试听文案（可选）
+                  </p>
+                  <Textarea
+                    rows={2}
+                    value={preview.text}
+                    onChange={(e) =>
+                      updatePreviewText(preview.id, e.target.value)
+                    }
+                    placeholder="例如：女声 · 温柔解说 · 片段摘要说明"
+                    className="text-xs resize-none"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
       <CardFooter className="pt-6">
         <Button type="button" variant="outline" onClick={handlePrevStep} className="px-6 transition-all duration-200">

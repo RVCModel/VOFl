@@ -54,6 +54,8 @@ interface Dataset {
   collection_count: number
   is_original: boolean
   original_author: string | null
+  preview_audio_urls?: string[]
+  preview_texts?: string[]
   profiles?: {
     username: string
     display_name?: string
@@ -841,7 +843,126 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              {dataset.type === 'voice' ? (
+              {dataset.type === 'voice' &&
+                Array.isArray(dataset.preview_audio_urls) &&
+                dataset.preview_audio_urls.length > 0 && (
+                  <div className="space-y-3 mb-6">
+                    {dataset.preview_audio_urls.map((url, index) => {
+                      const text =
+                        dataset.preview_texts?.[index] ||
+                        t.datasetDetail.noAudioPreview
+                      return (
+                        <div
+                          key={index}
+                          className="rounded-2xl border border-input/40 bg-card/95 px-4 py-3 md:px-5 md:py-4 flex flex-col md:flex-row md:items-stretch gap-4"
+                        >
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                              <span className="font-medium">
+                                audio · #{index + 1}
+                              </span>
+                              <span className="opacity-70">preview</span>
+                            </div>
+                            <audio
+                              controls
+                              src={url}
+                              className="w-full mt-1"
+                              preload="metadata"
+                            />
+                          </div>
+
+                          <div className="md:w-1/2 md:border-l border-t md:border-t-0 border-dashed border-input/40 md:pl-4 pt-3 md:pt-0">
+                            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground mb-1">
+                              text
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-3">
+                              {text}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+              {dataset.type === 'voice' && false &&
+                Array.isArray(dataset.preview_audio_urls) &&
+                dataset.preview_audio_urls.length > 0 && (
+                  <div className="space-y-4 mb-6">
+                    {dataset.preview_audio_urls.map((url, index) => {
+                      const text =
+                        dataset.preview_texts?.[index] ||
+                        t.datasetDetail.noAudioPreview
+                      return (
+                        <div
+                          key={index}
+                          className="rounded-[12px] border border-input/30 bg-muted/30 p-4 space-y-3"
+                        >
+                          <div className="grid grid-cols-2 gap-4 text-[11px] text-muted-foreground">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-semibold uppercase tracking-wide">
+                                  audio
+                                </span>
+                                <span className="opacity-70">
+                                  duration (s)
+                                </span>
+                              </div>
+                              <div className="flex items-end gap-1 h-10">
+                                {Array.from({ length: 8 }).map((_, i) => (
+                                  <div
+                                    key={i}
+                                    className="w-1.5 rounded-sm bg-primary/25"
+                                    style={{
+                                      height: `${6 + (i % 4) * 6}px`,
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-semibold uppercase tracking-wide">
+                                  text
+                                </span>
+                                <span className="opacity-70">
+                                  string · lengths
+                                </span>
+                              </div>
+                              <div className="flex items-end gap-1 h-10">
+                                {Array.from({ length: 8 }).map((_, i) => (
+                                  <div
+                                    key={i}
+                                    className="w-1.5 rounded-sm bg-muted-foreground/30"
+                                    style={{
+                                      height: `${4 + ((i + 3) % 5) * 5}px`,
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 items-center pt-2 border-t border-dashed border-input/40">
+                            <audio
+                              controls
+                              src={url}
+                              className="w-full"
+                              preload="metadata"
+                            />
+                            <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-3">
+                              {text}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+              {dataset.type === 'voice' &&
+              (!Array.isArray(dataset.preview_audio_urls) ||
+                dataset.preview_audio_urls.length === 0) ? (
                 <div className="space-y-5">
                   {audioUrl ? (
                     <>
@@ -922,10 +1043,12 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
                   )}
                 </div>
               ) : (
-                <div className="text-center py-10 text-muted-foreground">
-                  <FileText className="h-16 w-16 mx-auto mb-4 opacity-60" />
-                  <p className="text-base">{t.datasetDetail.noPreviewSupport}</p>
-                </div>
+                dataset.type !== 'voice' && (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <FileText className="h-16 w-16 mx-auto mb-4 opacity-60" />
+                    <p className="text-base">{t.datasetDetail.noPreviewSupport}</p>
+                  </div>
+                )
               )}
             </CardContent>
           </Card>

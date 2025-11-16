@@ -78,17 +78,14 @@ export function HeroCarousel() {
         </div>
         <div className="hidden flex-1 justify-end md:flex">
           <div className="w-64 rounded-2xl border border-white/10 bg-black/30 p-4 shadow-xl backdrop-blur lg:w-72">
-            <div className="mb-3 h-32 rounded-xl bg-gradient-to-br from-purple-500/60 via-indigo-500/60 to-emerald-400/60 p-3 shadow-inner">
-              <div className="audio-visualizer">
-                {Array.from({ length: 20 }).map((_, index) => (
-                  <div
-                    // eslint-disable-next-line react/no-array-index-key
-                    key={index}
-                    className="audio-bar"
-                    style={{ ["--bar-index" as any]: index }}
-                  />
-                ))}
-              </div>
+            <div className="relative mb-3 h-32 overflow-hidden rounded-xl border border-white/10 bg-black/60 shadow-inner">
+              <img
+                src="/bg.png"
+                alt="VOFL hero visual"
+                className="h-full w-full object-cover opacity-85"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-purple-600/60 via-sky-500/40 to-emerald-400/40 mix-blend-soft-light" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/70 to-transparent" />
             </div>
             <p className="truncate text-sm font-medium text-white/90">
               {slide.subtitle || "Featured Voice Model"}
@@ -106,4 +103,3 @@ export function HeroCarousel() {
     </div>
   )
 }
-
