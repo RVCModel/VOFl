@@ -90,6 +90,7 @@ export function CombinedList({
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [seed] = useState(() => Math.random().toString(36).slice(2))
 
   useEffect(() => {
     fetchItems(0, limit, true)
@@ -108,6 +109,7 @@ export function CombinedList({
       const params = new URLSearchParams({
         page: pageNum.toString(),
         limit: pageSize.toString(),
+        seed,
       })
 
       if (searchQuery) {
