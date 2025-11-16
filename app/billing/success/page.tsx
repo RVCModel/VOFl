@@ -1,6 +1,5 @@
-import { createServerClient } from '@/lib/supabase-server'
-import { createClient } from '@/lib/supabase'
-import RechargeSuccessClient from './recharge-success-client'
+import { createServerSupabase } from "@/lib/supabase-server"
+import RechargeSuccessClient from "./recharge-success-client"
 
 interface RechargeSuccessPageProps {
   searchParams: {
@@ -8,17 +7,22 @@ interface RechargeSuccessPageProps {
   }
 }
 
-export default async function RechargeSuccessPage({ searchParams }: RechargeSuccessPageProps) {
+export default async function RechargeSuccessPage({
+  searchParams,
+}: RechargeSuccessPageProps) {
   const { rechargeId } = searchParams
-  
-  // 在服务端获取用户信息
-  const supabase = createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  
+
+  // 在服务端获取当前用户信息，避免前端闪烁
+  const supabase = await createServerSupabase()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   return (
-    <RechargeSuccessClient 
-      rechargeId={rechargeId || null} 
-      initialUser={user} 
+    <RechargeSuccessClient
+      rechargeId={rechargeId || null}
+      initialUser={user}
     />
   )
 }
+
