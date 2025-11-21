@@ -149,7 +149,8 @@ export const translations = {
       allTypes: "全部类型",
       voiceType: "语音",
       textType: "文本",
-      imageType: "图像",
+      imageType: "图片",
+      videoType: "视频",
       otherType: "其他",
       sortBy: "排序",
       newest: "最新",
@@ -740,6 +741,11 @@ export const translations = {
     },
     categories: {
       all: "All",
+      ipAnime: "Anime IP",
+      explanation: "Explanation",
+      character: "Character Voice",
+      game: "Game Voice",
+      other: "Other",
       chinese: "Chinese",
       english: "English",
       japanese: "Japanese",
@@ -785,9 +791,10 @@ export const translations = {
       allCategories: "All Categories",
       typeFilter: "Type",
       allTypes: "All Types",
-      voiceType: "Voice",
+      voiceType: "Audio",
       textType: "Text",
       imageType: "Image",
+      videoType: "Video",
       otherType: "Other",
       sortBy: "Sort By",
       newest: "Newest",
@@ -1283,3 +1290,8 @@ export const translations = {
 }
 
 export type Locale = keyof typeof translations
+
+
+
+
+

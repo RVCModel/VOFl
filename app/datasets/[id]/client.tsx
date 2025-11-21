@@ -1169,7 +1169,3 @@ export default function DatasetDetailClient({ initialDataset, initialAuthorDatas
     </div>
   )
 }
-
-
-
-

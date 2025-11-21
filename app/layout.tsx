@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { cookies } from "next/headers"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { LayoutWrapper } from "@/components/layout-wrapper"
@@ -14,13 +15,40 @@ import "./globals.css"
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
-export const metadata: Metadata = {
-  title: "VOFL.AI - 语音合成模型网",
-  description: "专业的VOFL模型和数据集分享平台,致力于gpt-sovits模型分享以及数据集分享。",
-  keywords: ["gpt-sovits", "模型", "语音模型", "免费下载", "二次元", "ACG", "AI", "炼丹", "人工智能", "深度学习", "语音转换", "tts"],
-  icons: {
-    icon: '/favicon.ico',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const cookieStore = await cookies()
+  const preferredLocale = (cookieStore.get("vofl_locale")?.value as any) || "zh"
+
+  const zh: Metadata = {
+    title: "VOFL.AI - 语音合成模型网",
+    description: "专业的VOFL模型和数据集分享平台,致力于gpt-sovits模型分享以及数据集分享。",
+    keywords: ["gpt-sovits", "模型", "语音模型", "免费下载", "二次元", "ACG", "AI", "炼丹", "人工智能", "深度学习", "语音转换", "tts"],
+    icons: {
+      icon: "/favicon.ico",
+    },
+  }
+
+  const en: Metadata = {
+    title: "VOFL.AI - Speech Synthesis Model Hub",
+    description: "Professional VOFL model and dataset sharing platform, dedicated to gpt-sovits models and datasets.",
+    keywords: [
+      "gpt-sovits",
+      "models",
+      "speech model",
+      "free download",
+      "anime",
+      "ACG",
+      "AI",
+      "TTS",
+      "voice conversion",
+      "deep learning",
+    ],
+    icons: {
+      icon: "/favicon.ico",
+    },
+  }
+
+  return preferredLocale === "en" ? en : zh
 }
 
 export default async function RootLayout({
@@ -29,18 +57,21 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   // SSR: inject session & user for first render to avoid flicker
+  const cookieStore = await cookies()
+  const preferredLocale = (cookieStore.get("vofl_locale")?.value as any) || "zh"
   const supabase = await createServerSupabase()
   const {
     data: { session },
   } = await supabase.auth.getSession()
   const initialSession = session ?? null
   const initialUser = session?.user ?? null
+
   return (
-    <html lang="zh" suppressHydrationWarning>
-      <body className={`font-sans antialiased`}>
+    <html lang={preferredLocale} suppressHydrationWarning>
+      <body className="font-sans antialiased">
         <TopProgressBar />
         <ThemeProvider defaultTheme="system">
-          <LocaleProvider>
+          <LocaleProvider defaultLocale={preferredLocale}>
             <AuthProvider initialSession={initialSession} initialUser={initialUser}>
               <LayoutWrapper>{children}</LayoutWrapper>
               <Toaster />

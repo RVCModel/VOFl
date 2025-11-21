@@ -45,7 +45,7 @@ export async function GET(
     const userIds = [...new Set(comments?.map(comment => comment.user_id) || [])]
     const { data: profiles } = await supabaseClient
       .from('profiles')
-      .select('id, username, avatar_url')
+      .select('id, username, display_name, avatar_url')
       .in('id', userIds)
 
     // 将用户信息合并到评论中
@@ -154,7 +154,7 @@ export async function POST(
     // 获取用户信息
     const { data: userProfile } = await supabase
       .from('profiles')
-      .select('id, username, avatar_url')
+      .select('id, username, display_name, avatar_url')
       .eq('id', user.id)
       .single()
 
@@ -179,11 +179,11 @@ export async function POST(
       // 获取评论作者的用户名
       const { data: commenterProfile } = await supabase
         .from('profiles')
-        .select('username')
+        .select('username, display_name')
         .eq('id', user.id)
         .single()
 
-      const commenterName = commenterProfile?.username || '用户'
+      const commenterName = commenterProfile?.display_name || commenterProfile?.username || '用户'
       const messageTitle = parent_id ? '您的评论收到了回复' : '您的模型收到了新评论'
       const messageContent = parent_id 
         ? `${commenterName} 回复了您的评论: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`
@@ -221,3 +221,6 @@ export async function POST(
     )
   }
 }
+
+
+

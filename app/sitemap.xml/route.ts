@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const supabase = createServiceClient()
   
@@ -93,7 +95,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'application/xml',
-        'Cache-Control': 'public, max-age=300, s-maxage=1800', // 缓存5分钟，CDN缓存30分钟
+        'Cache-Control': 'no-store',
       },
     })
   } catch (error) {
