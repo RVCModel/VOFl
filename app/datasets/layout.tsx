@@ -16,13 +16,13 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (locale === "en") {
     return {
-      title: "TTS Models - VOFL.AI - Speech Synthesis Model Hub",
+      title: "Datasets - VOFL.AI - Speech Synthesis Model Hub",
       description:
-        "Browse and publish speech synthesis models, TTS models, and AI voice creations on VOFL.AI.",
+        "Discover and share high-quality datasets for speech synthesis, TTS, and AI creation on VOFL.AI.",
       keywords: [
         "gpt-sovits",
-        "models",
-        "speech model",
+        "datasets",
+        "speech dataset",
         "free download",
         "anime",
         "ACG",
@@ -35,12 +35,12 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 
   return {
-    title: "TTS模型 - VOFL.AI - 语音合成模型网",
+    title: "数据集 - VOFL.AI - 语音合成模型网",
     description: "专业的VOFL模型和数据集分享平台，致力于gpt-sovits模型分享以及数据集分享。",
     keywords: ["gpt-sovits", "模型", "语音模型", "免费下载", "二次元", "ACG", "AI", "炼丹", "人工智能", "深度学习", "语音转换", "tts"],
   }
 }
 
-export default function ModelsLayout({ children }: { children: React.ReactNode }) {
+export default function DatasetsLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }

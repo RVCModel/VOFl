@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { LayoutWrapper } from "@/components/layout-wrapper"
@@ -17,7 +17,14 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies()
-  const preferredLocale = (cookieStore.get("vofl_locale")?.value as any) || "zh"
+  const preferredLocale =
+    (cookieStore.get("vofl_locale")?.value as any) ||
+    (() => {
+      const accept = headers().get("accept-language")?.toLowerCase() || ""
+      if (accept.startsWith("en")) return "en"
+      if (accept.includes("en")) return "en"
+      return "zh"
+    })()
 
   const zh: Metadata = {
     title: "VOFL.AI - 语音合成模型网",
@@ -58,7 +65,14 @@ export default async function RootLayout({
 }>) {
   // SSR: inject session & user for first render to avoid flicker
   const cookieStore = await cookies()
-  const preferredLocale = (cookieStore.get("vofl_locale")?.value as any) || "zh"
+  const preferredLocale =
+    (cookieStore.get("vofl_locale")?.value as any) ||
+    (() => {
+      const accept = headers().get("accept-language")?.toLowerCase() || ""
+      if (accept.startsWith("en")) return "en"
+      if (accept.includes("en")) return "en"
+      return "zh"
+    })()
   const supabase = await createServerSupabase()
   const {
     data: { session },
