@@ -27,21 +27,38 @@ function ResetPasswordContent() {
   const [tokenValid, setTokenValid] = useState(true)
 
   useEffect(() => {
-    // 检查URL中是否有重置令牌
-    const accessToken = searchParams.get('access_token')
-    const refreshToken = searchParams.get('refresh_token')
+    const accessToken = searchParams.get("access_token")
+    const refreshToken = searchParams.get("refresh_token")
+    const expiresIn = searchParams.get("expires_in")
     
     if (!accessToken || !refreshToken) {
       setTokenValid(false)
       setError(t.resetPassword.error)
+      return
     }
+
+    supabase.auth
+      .setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: expiresIn ? parseInt(expiresIn, 10) : undefined,
+      })
+      .then(({ error: sessionError }) => {
+        if (sessionError) {
+          setTokenValid(false)
+          setError(t.resetPassword.error)
+        }
+      })
+      .catch(() => {
+        setTokenValid(false)
+        setError(t.resetPassword.error)
+      })
   }, [searchParams, t.resetPassword.error])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
 
-    // 密码验证
     if (password.length < 8) {
       setError(t.resetPassword.weakPassword)
       return
@@ -55,29 +72,7 @@ function ResetPasswordContent() {
     setIsLoading(true)
 
     try {
-      // 从URL获取令牌
-      const accessToken = searchParams.get('access_token')
-      const refreshToken = searchParams.get('refresh_token')
-      
-      if (!accessToken || !refreshToken) {
-        setError(t.resetPassword.error)
-        setIsLoading(false)
-        return
-      }
-
-      // 使用令牌设置会话
-      const { error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      })
-
-      if (sessionError) {
-        setError(t.resetPassword.error)
-        setIsLoading(false)
-        return
-      }
-
-      // 更新密码
+      // 会话已在 useEffect 中设置，直接更新密码
       const { error } = await supabase.auth.updateUser({
         password: password
       })
@@ -86,10 +81,9 @@ function ResetPasswordContent() {
         setError(t.resetPassword.error)
       } else {
         setSuccess(true)
-        // 延迟跳转到登录页面
         setTimeout(() => {
           router.push('/login')
-        }, 3000)
+        }, 2000)
       }
     } catch (err: any) {
       setError(t.resetPassword.error)
@@ -173,7 +167,6 @@ function ResetPasswordContent() {
   )
 }
 
-// 添加加载组件
 function ResetPasswordLoading() {
   return (
     <PublicOnlyRoute>
@@ -184,7 +177,6 @@ function ResetPasswordLoading() {
   )
 }
 
-// 使用 Suspense 包装 ResetPasswordContent
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={<ResetPasswordLoading />}>
