@@ -235,32 +235,31 @@ export default function ModelDetailClient({ initialModel, searchParams }: ModelD
 
   const fetchComments = async () => {
     try {
-      // 调用新的API端点获取嵌套评论树
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (!session) {
-        throw new Error('未登录')
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      const headers: Record<string, string> = {}
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`
       }
 
       const response = await fetch(`/api/models/${id}/comments`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
+        method: "GET",
+        headers,
       })
 
       if (!response.ok) {
-        throw new Error('获取评论失败')
+        throw new Error("获取评论失败")
       }
 
       const { comments } = await response.json()
       setComments(comments || [])
     } catch (error) {
-      console.error('获取评论失败:', error)
+      console.error("获取评论失败:", error)
     }
   }
 
-  // 使用useCallback优化处理函数，防止不必要的重新渲染
+// 使用useCallback优化处理函数，防止不必要的重新渲染
   const handleCommentSubmit = useCallback(async () => {
     if (!user || !commentContent.trim()) return
 

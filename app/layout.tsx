@@ -21,8 +21,8 @@ export async function generateMetadata(): Promise<Metadata> {
     (cookieStore.get("vofl_locale")?.value as any) ||
     (() => {
       const accept = headers().get("accept-language")?.toLowerCase() || ""
-      if (accept.startsWith("en")) return "en"
-      if (accept.includes("en")) return "en"
+      if (accept.startsWith("ja") || accept.includes("ja")) return "ja"
+      if (accept.startsWith("en") || accept.includes("en")) return "en"
       return "zh"
     })()
 
@@ -69,8 +69,8 @@ export default async function RootLayout({
     (cookieStore.get("vofl_locale")?.value as any) ||
     (() => {
       const accept = headers().get("accept-language")?.toLowerCase() || ""
-      if (accept.startsWith("en")) return "en"
-      if (accept.includes("en")) return "en"
+      if (accept.startsWith("ja") || accept.includes("ja")) return "ja"
+      if (accept.startsWith("en") || accept.includes("en")) return "en"
       return "zh"
     })()
   const supabase = await createServerSupabase()

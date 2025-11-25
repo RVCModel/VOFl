@@ -140,6 +140,10 @@ export function Header({ isSidebarCollapsed, onToggleSidebar }: HeaderProps) {
                 English
                 {locale === "en" && <span className="ml-auto text-xs">✓</span>}
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLocale("ja")} className={locale === "ja" ? "bg-accent" : ""}>
+                日本語
+                {locale === "ja" && <span className="ml-auto text-xs">✓</span>}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 

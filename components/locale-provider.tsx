@@ -21,6 +21,7 @@ export function LocaleProvider({ children, defaultLocale = "zh" }: LocaleProvide
       const saved = window.localStorage.getItem("vofl_locale") as Locale | null
       if (saved) return saved
       const nav = window.navigator?.language?.toLowerCase() || ""
+      if (nav.startsWith("ja")) return "ja"
       if (nav.startsWith("zh")) return "zh"
       return "en"
     }
