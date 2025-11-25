@@ -27,11 +27,26 @@ function ResetPasswordContent() {
   const [tokenValid, setTokenValid] = useState(true)
 
   useEffect(() => {
-    const accessToken = searchParams.get("access_token")
-    const refreshToken = searchParams.get("refresh_token")
-    const expiresIn = searchParams.get("expires_in")
-    
-    if (!accessToken || !refreshToken) {
+    const parseHashParams = () => {
+      const hash = typeof window !== "undefined" ? window.location.hash : ""
+      const params = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash)
+      return {
+        access_token: params.get("access_token"),
+        refresh_token: params.get("refresh_token"),
+        expires_in: params.get("expires_in"),
+        error: params.get("error"),
+      }
+    }
+
+    const { access_token, refresh_token, expires_in, error: hashError } = parseHashParams()
+
+    if (hashError) {
+      setTokenValid(false)
+      setError(t.resetPassword.error)
+      return
+    }
+
+    if (!access_token || !refresh_token) {
       setTokenValid(false)
       setError(t.resetPassword.error)
       return
@@ -39,9 +54,9 @@ function ResetPasswordContent() {
 
     supabase.auth
       .setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        expires_in: expiresIn ? parseInt(expiresIn, 10) : undefined,
+        access_token,
+        refresh_token,
+        expires_in: expires_in ? parseInt(expires_in, 10) : undefined,
       })
       .then(({ error: sessionError }) => {
         if (sessionError) {
