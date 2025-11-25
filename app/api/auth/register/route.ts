@@ -19,7 +19,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "密码长度不能少于6位" }, { status: 400 })
     }
 
-    const options: any = {}
+    const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.vofl.ai"}/auth/callback`
+
+    const options: any = {
+      emailRedirectTo: redirectTo,
+    }
     if (captchaToken) options.captchaToken = captchaToken
 
     // 直接尝试注册；若邮箱已存在，Supabase 会返回 user.identity 为空或报错
@@ -36,6 +40,7 @@ export async function POST(request: NextRequest) {
           email,
           password,
           email_confirm: false, // 仍需用户验证邮箱
+          redirectTo,
         })
 
         if (adminError) {
